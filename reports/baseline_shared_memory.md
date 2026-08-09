@@ -6,6 +6,39 @@ In the sametime, got curious to see if we have more slots, will the consumer lap
 
 But yeah this may not always be true as we may not have the option of using more slots. It only shows that, in this local baseline test, the smaller ring was one cause of message drops under load.
 
+## Current Network Transport
+
+I added two binaries for the middle transport layer:
+
+- `sender`: reads frames from the producer shared-memory ring and sends them over UDP.
+- `receiver`: receives UDP frames and publishes them into another shared-memory ring for the consumer.
+
+Build:
+
+```bash
+make -C harness
+```
+
+Single-machine smoke test flow, in four terminals:
+
+```bash
+./harness/bin/receiver --out-shm /fanout_out --slots 65536 --bind 127.0.0.1 --port 9000 --count 200000
+```
+
+```bash
+./harness/bin/consumer --shm /fanout_out --slots 65536 --from-edge --count 200000 --csv data/latency_udp.csv
+```
+
+```bash
+./harness/bin/producer --shm /fanout_in --slots 65536 --count 200000 --rate 250000 --type mixed
+```
+
+```bash
+./harness/bin/sender --in-shm /fanout_in --slots 65536 --host 127.0.0.1 --port 9000 --count 200000
+```
+
+For a two-machine run, start `receiver` and `consumer` on the receiving host, start `producer` and `sender` on the sending host, and pass the receiving host IP to `sender --host`.
+
 ## 1024 Slots
 
 ```bash

@@ -5,7 +5,7 @@ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -Iinclude
 LDLIBS   ?= -lrt -lpthread
 
 BIN := bin
-BINARIES := $(BIN)/producer $(BIN)/consumer
+BINARIES := $(BIN)/producer $(BIN)/consumer $(BIN)/sender $(BIN)/receiver
 
 .PHONY: all clean test
 
@@ -18,6 +18,12 @@ $(BIN)/producer: src/producer.cpp include/*.h | $(BIN)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS)
 
 $(BIN)/consumer: src/consumer.cpp include/*.h | $(BIN)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS)
+
+$(BIN)/sender: src/sender.cpp include/*.h | $(BIN)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS)
+
+$(BIN)/receiver: src/receiver.cpp include/*.h | $(BIN)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS)
 
 test: $(BIN)/test_harness

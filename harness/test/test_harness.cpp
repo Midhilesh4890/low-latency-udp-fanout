@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 
+#include "message.h"
 #include "metrics.h"
 #include "shm_ring.h"
 
@@ -107,11 +108,50 @@ static void test_ring_lapping() {
   printf("test_ring_lapping OK\n");
 }
 
+static void test_frame_roundtrip_preserves_header() {
+  const uint32_t slots = 8;
+  std::vector<uint8_t> mem(shm::region_size(slots));
+  shm::Ring prod;
+  prod.attach(mem.data(), slots, true);
+  shm::Ring cons;
+  cons.attach(mem.data(), slots, false);
+
+  msg::Trade frame{};
+  frame.header.seq_id = 42;
+  frame.header.send_ts_ns = 123456789;
+  frame.header.type = static_cast<uint16_t>(msg::Type::Trade);
+  frame.header.version = 1;
+  frame.header.body_len = sizeof(frame);
+  frame.trade_id = 777;
+  frame.price = 101.25;
+  frame.quantity = 3.5;
+
+  prod.publish(&frame, sizeof(frame));
+
+  msg::Trade out{};
+  uint32_t len = 0;
+  uint64_t resume = 0;
+  auto st = cons.read(0, &out, &len, &resume);
+
+  assert(st == shm::Ring::FrameStatus::kOk);
+  assert(len == sizeof(frame));
+  assert(out.header.seq_id == frame.header.seq_id);
+  assert(out.header.send_ts_ns == frame.header.send_ts_ns);
+  assert(out.header.type == frame.header.type);
+  assert(out.header.version == frame.header.version);
+  assert(out.header.body_len == frame.header.body_len);
+  assert(out.trade_id == frame.trade_id);
+  assert(out.price == frame.price);
+  assert(out.quantity == frame.quantity);
+  printf("test_frame_roundtrip_preserves_header OK\n");
+}
+
 int main() {
   test_metrics_basic();
   test_metrics_drops();
   test_ring_roundtrip();
   test_ring_lapping();
+  test_frame_roundtrip_preserves_header();
   printf("ALL TESTS PASSED\n");
   return 0;
 }

@@ -26,7 +26,7 @@ $(BIN)/sender: src/sender.cpp include/*.h | $(BIN)
 $(BIN)/receiver: src/receiver.cpp include/*.h | $(BIN)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS)
 
-test: $(BIN)/test_harness
+test: $(BINARIES) $(BIN)/test_harness
 	./$(BIN)/test_harness
 
 $(BIN)/test_harness: test/test_harness.cpp include/*.h | $(BIN)

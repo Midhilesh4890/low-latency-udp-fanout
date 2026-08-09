@@ -10,6 +10,7 @@
 #include <cstring>
 #include <string>
 
+#include "message.h"
 #include "shm_ring.h"
 #include "shm_segment.h"
 #include "util.h"
@@ -23,6 +24,7 @@ struct Config {
   std::string port = "9000";
   uint64_t count = 0;
   uint64_t idle_ms = 2000;
+  int rcvbuf = 4 * 1024 * 1024;
 };
 
 Config parse_args(int argc, char** argv) {
@@ -42,6 +44,7 @@ Config parse_args(int argc, char** argv) {
     else if (a == "--port") c.port = next();
     else if (a == "--count") c.count = std::stoull(next());
     else if (a == "--idle-ms") c.idle_ms = std::stoull(next());
+    else if (a == "--rcvbuf") c.rcvbuf = std::stoi(next());
     else {
       fprintf(stderr, "unknown arg: %s\n", a.c_str());
       std::exit(2);
@@ -72,6 +75,7 @@ int open_bound_udp_socket(const Config& cfg) {
 
     int one = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &cfg.rcvbuf, sizeof(cfg.rcvbuf));
     if (bind(fd, p->ai_addr, p->ai_addrlen) == 0) break;
 
     close(fd);
@@ -101,20 +105,31 @@ int main(int argc, char** argv) {
 
   const int sock = open_bound_udp_socket(cfg);
 
-  fprintf(stderr, "receiver: out_shm=%s slots=%u bind=%s:%s count=%llu\n",
+  fprintf(stderr, "receiver: out_shm=%s slots=%u bind=%s:%s count=%llu rcvbuf=%d\n",
           cfg.out_shm.c_str(), cfg.slots, cfg.bind_host.c_str(),
-          cfg.port.c_str(), static_cast<unsigned long long>(cfg.count));
+          cfg.port.c_str(), static_cast<unsigned long long>(cfg.count),
+          cfg.rcvbuf);
 
   uint64_t received = 0;
+  uint64_t duplicates = 0;
+  uint64_t published = 0;
+  uint64_t last_seq = 0;
   const uint64_t idle_ns = cfg.idle_ms * 1000000ull;
   uint64_t last_progress = util::now_ns();
 
   uint8_t frame[shm::kFrameCap];
-  while (cfg.count == 0 || received < cfg.count) {
+  while (cfg.count == 0 || published < cfg.count) {
     const ssize_t n = recv(sock, frame, sizeof(frame), 0);
     if (n > 0) {
-      ring.publish(frame, static_cast<uint32_t>(n));
       ++received;
+      const auto* hdr = reinterpret_cast<const msg::Header*>(frame);
+      if (hdr->seq_id > last_seq) {
+        ring.publish(frame, static_cast<uint32_t>(n));
+        last_seq = hdr->seq_id;
+        ++published;
+      } else {
+        ++duplicates;
+      }
       last_progress = util::now_ns();
     } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
       if (util::now_ns() - last_progress > idle_ns) break;
@@ -125,8 +140,10 @@ int main(int argc, char** argv) {
     }
   }
 
-  fprintf(stderr, "receiver: received=%llu\n",
-          static_cast<unsigned long long>(received));
+  fprintf(stderr, "receiver: received=%llu published=%llu duplicates=%llu\n",
+          static_cast<unsigned long long>(received),
+          static_cast<unsigned long long>(published),
+          static_cast<unsigned long long>(duplicates));
   close(sock);
   seg.unlink();
   return 0;

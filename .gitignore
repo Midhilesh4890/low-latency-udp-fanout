@@ -2,3 +2,10 @@ data/
 logs/
 *.csv
 *.latencies
+bench/results/**
+!bench/results/**/
+!bench/results/**/summary.csv
+!bench/results/**/summary.json
+!bench/results/**/run.json
+!bench/results/**/sweep.json
+!bench/results/**/env_snapshot*

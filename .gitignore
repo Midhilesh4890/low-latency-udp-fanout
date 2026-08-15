@@ -3,10 +3,4 @@ logs/
 *.csv
 *.latencies
 benchmark/results/**
-!benchmark/results/**/
-!benchmark/results/**/summary.csv
-!benchmark/results/**/summary.json
-!benchmark/results/**/run.json
-!benchmark/results/**/sweep.json
-!benchmark/results/**/env_snapshot*
 reports/handoff/

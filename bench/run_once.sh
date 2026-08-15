@@ -19,6 +19,7 @@ cpu_consumer=""
 sndbuf="4194304"
 rcvbuf="4194304"
 no_build="false"
+has_destinations="false"
 declare -a destinations=()
 
 usage() {
@@ -26,13 +27,13 @@ usage() {
 }
 
 require_value() {
-  if [[ $# -lt 2 ]]; then
+  if [[ -z "${2+x}" ]]; then
     printf '%s\n' "missing value for $1" >&2
     exit 2
   fi
 }
 
-while [[ $# -gt 0 ]]; do
+while [[ -n "${1+x}" ]]; do
   case "$1" in
     --role)
       require_value "$@"
@@ -126,6 +127,7 @@ while [[ $# -gt 0 ]]; do
     --dst)
       require_value "$@"
       destinations+=("$2")
+      has_destinations="true"
       shift 2
       ;;
     --help|-h)
@@ -172,7 +174,9 @@ fi
 
 shm_path() {
   local name="$1"
-  name="${name#/}"
+  if [[ "$name" == /* ]]; then
+    name="${name:1}"
+  fi
   printf '/dev/shm/%s\n' "$name"
 }
 
@@ -224,7 +228,7 @@ consumer_command=("$repo_root/harness/bin/consumer" --shm "$out_shm" --slots "$s
 producer_command=("$repo_root/harness/bin/producer" --shm "$in_shm" --slots "$slots" --count "$total_count" --rate "$rate" --type "$message_type")
 sender_command=("$repo_root/harness/bin/sender" --in-shm "$in_shm" --slots "$slots" --count "$total_count" --sndbuf "$sndbuf")
 
-if [[ "${#destinations[@]}" -gt 0 ]]; then
+if [[ "$has_destinations" == "true" ]]; then
   for destination in "${destinations[@]}"; do
     sender_command+=(--dst "$destination")
   done

@@ -47,6 +47,22 @@ def receiver_for(latency_csv):
     return latency_csv.parent.name
 
 
+def read_lapped_count(path, pattern):
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    match = re.search(pattern, text)
+    return "" if match is None else int(match.group(1))
+
+
+def lapped_counts_for(log_dir):
+    return {
+        "consumer_lapped": read_lapped_count(log_dir / "consumer.log", r"consumer: lapped ([0-9]+) times"),
+        "sender_lapped": read_lapped_count(log_dir / "sender.log", r"sender: sent=[0-9]+ packets=[0-9]+ lapped=([0-9]+)"),
+    }
+
+
 def discover_latency_csvs(root):
     if not root.exists():
         fail(f"input root does not exist: {root}")
@@ -234,6 +250,7 @@ def summarize_receiver(root, latency_csv, skip_warmup):
     run_dir = run_dir_for(latency_csv)
     data = read_run_json(run_dir / "run.json")
     parameters = data.get("parameters", {})
+    lapped_counts = lapped_counts_for(latency_csv.parent)
     recorded_warmup = warmup_from(data)
     warmup = recorded_warmup if skip_warmup is None else int(skip_warmup)
     samples = read_samples(latency_csv, warmup)
@@ -279,6 +296,8 @@ def summarize_receiver(root, latency_csv, skip_warmup):
         "cpu_consumer": parameters.get("cpu_consumer", ""),
         "sndbuf": parameters.get("sndbuf", ""),
         "rcvbuf": parameters.get("rcvbuf", ""),
+        "consumer_lapped": lapped_counts["consumer_lapped"],
+        "sender_lapped": lapped_counts["sender_lapped"],
         "hostname": data.get("hostname", ""),
         "wall_clock_received_rate": wall_clock_received_rate,
         "achieved_rate": achieved_rate,
@@ -376,6 +395,8 @@ def aggregate_rows(root, rows):
         aggregate["receiver"] = "all"
         aggregate["aggregate_repeats"] = len(repeat_numbers)
         aggregate["freeze_count"] = int(sum(1 for row in group_rows if row["freeze_events"]))
+        aggregate["consumer_lapped"] = sum(int(row["consumer_lapped"]) for row in group_rows if row["consumer_lapped"] not in (None, ""))
+        aggregate["sender_lapped"] = sum(int(row["sender_lapped"]) for row in group_rows if row["sender_lapped"] not in (None, ""))
         aggregate["high_loss"] = any(row["high_loss"] for row in group_rows)
         aggregate["clock_invalid"] = any(row["clock_invalid"] for row in group_rows)
         aggregate["void"] = any(row["void"] for row in group_rows)
@@ -415,7 +436,7 @@ def aggregate_rows(root, rows):
 
 
 def public_keys():
-    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
+    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "consumer_lapped", "sender_lapped", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
 
 
 def public_row(row):
@@ -441,7 +462,7 @@ def print_table(rows, warnings):
         item = public_row(row)
         item["flags"] = flags_for(row)
         display.append(item)
-    columns = ["row_type", "config", "repeat", "receiver", "rate", "count", "warmup", "skip_warmup", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p99", "p99_9", "max", "ramp_ratio", "ramp_slope_ns", "saturation_triggers", "flags", "freeze_count"]
+    columns = ["row_type", "config", "repeat", "receiver", "rate", "count", "warmup", "skip_warmup", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "consumer_lapped", "sender_lapped", "p50", "p99", "p99_9", "max", "ramp_ratio", "ramp_slope_ns", "saturation_triggers", "flags", "freeze_count"]
     widths = {column: len(column) for column in columns}
     lines = []
     for row in display:

@@ -1,85 +1,184 @@
 # Stage 7 Baseline
 
-## Problem 1
+## Consumer CSV Change
 
-benchmark/results/rate_sweep/20260815T205658Z latency CSV files contain only seq,latency_ns. They do not contain send_ts_ns, and run.json plus the process logs do not persist first or last send timestamps.
+consumer.cpp was changed only to add send_ts_ns to the CSV header and to write hdr->send_ts_ns as the third CSV field. sender.cpp, receiver.cpp and harness/include were not modified.
 
-summarize.py now computes achieved_rate from post-warmup send_ts_ns when that column is present and drives the rate saturation trigger from that value. For existing two-column CSVs, achieved_rate is blank and the rate trigger does not fire. wall_clock_received_rate remains visible as a separate column.
+Complete diff:
 
-Full table after re-running:
-
-~~~~text
- row_type      config repeat receiver   rate   count warmup skip_warmup wall_clock_received_rate achieved_rate received expected dropped   drop_rate      p50      p99    p99_9        max ramp_ratio ramp_slope_ns saturation_triggers                 flags freeze_count
-      run rate_100000      1 rx_local 100000  500000  50000       50000                  64979.9                 498913   500000    1087    0.002174     1735 20860390 28603623   28653590   0.962156       -1.5917                                        OK             
-      run rate_100000      2 rx_local 100000  500000  50000       50000                  88092.9                 500000   500000       0           0     1737    31935   677051    2985912    1.02041    -0.0143473                                        OK             
-      run rate_100000      3 rx_local 100000  500000  50000       50000                  88016.7                 500000   500000       0           0     1747    32693   240808    1182811    1.04673  -5.58904e-05                                        OK             
-      run rate_200000      1 rx_local 200000 1000000 100000      100000                   129880                 999758  1000000     242    0.000242     1697    47117   730335    2646292    1.01656   -0.00466532                                        OK             
-      run rate_200000      2 rx_local 200000 1000000 100000      100000                   175703                1000000  1000000       0           0     1703    39136   902515    2676754   0.998833    -0.0060815                                        OK             
-      run rate_200000      3 rx_local 200000 1000000 100000      100000                   176050                1000000  1000000       0           0     1695   211890  6495706    7158707   0.987486      -0.09544                                        OK             
-      run rate_300000      1 rx_local 300000 1500000 150000      150000                   261755                1500000  1500000       0           0     1732    57323   870294    4973588    1.26679    0.00833988                                        OK             
-      run rate_300000      2 rx_local 300000 1500000 150000      150000                   194180                1498066  1500000    1934  0.00128933     2028 23130911 36957652   39429944    1.67803       1.68652                                        OK             
-      run rate_300000      3 rx_local 300000 1500000 150000      150000                   194413                1499989  1500000      11 7.33333e-06     1950    80859  1019588    2725169    1.35163   -0.00290084                                        OK             
-      run rate_400000      1 rx_local 400000 2000000 200000      200000                   258347                1999948  2000000      52     2.6e-05     1994   222443  1628156    2946416     1.2954    -0.0114144                                        OK             
-      run rate_400000      2 rx_local 400000 2000000 200000      200000                   346915                2000000  2000000       0           0     1943   171131  2691431    4178254    1.35543   -0.00144336                                        OK             
-      run rate_400000      3 rx_local 400000 2000000 200000      200000                   258051                1999330  2000000     670    0.000335     2078   135410  1087619    2269226    1.49818    0.00274244                                        OK             
-      run rate_500000      1 rx_local 500000 2500000 250000      250000                   320143                2491325  2500000    8675     0.00347     2084  8947543 21206790   25985517    1.35168     -0.421895                                        OK             
-      run rate_500000      2 rx_local 500000 2500000 250000      250000                   319993                2496010  2500000    3990    0.001596     2135  1449067  5268551    5464694    1.57901     0.0673244                                        OK             
-      run rate_500000      3 rx_local 500000 2500000 250000      250000                   320523                2492283  2500000    7717   0.0030868     2085 25361160 40425454   46346461     1.3171     -0.605276                                        OK             
-      run rate_600000      1 rx_local 600000 3000000 300000      300000                   383524                2998447  3000000    1553 0.000517667     2174  8439029 11896067   12347363    1.69348      0.393484                                    FREEZE             
-      run rate_600000      2 rx_local 600000 3000000 300000      300000                   382664                2999848  3000000     152 5.06667e-05     2136  4316555 15665045   20200312     11.914      0.284489                ramp      SATURATED|FREEZE             
-      run rate_600000      3 rx_local 600000 3000000 300000      300000                   383937                2998943  3000000    1057 0.000352333     2357  5873332  7459254    9807806    52.1536      0.413513                ramp      SATURATED|FREEZE             
-      run rate_800000      1 rx_local 800000 4000000 400000      400000                   308929                2450372  4000000 1549628    0.387407  1186911 80992902 81921889 4294970451    195.582       27.0163                ramp SATURATED|LOSS|FREEZE             
-      run rate_800000      2 rx_local 800000 4000000 400000      400000                   318543                2507018  4000000 1492982    0.373246   568400 79051783 81921410   82036632    368.365       16.5856                ramp SATURATED|LOSS|FREEZE             
-      run rate_800000      3 rx_local 800000 4000000 400000      400000                   104792                 822414  4000000 3177586    0.794396 68800252 91171312 93360405   93662103    1.45018       26.7653                                      LOSS             
-aggregate rate_100000    all      all 100000  500000  50000       50000                  88016.7                1498913  1500000    1087 0.000724667     1737    32693   677051    2985912                                                                 OK            0
-aggregate rate_200000    all      all 200000 1000000 100000      100000                   175703                2999758  3000000     242 8.06667e-05     1697    47117   902515    2676754                                                                 OK            0
-aggregate rate_300000    all      all 300000 1500000 150000      150000                   194413                4498055  4500000    1945 0.000432222     1950    80859  1019588    4973588                                                                 OK            0
-aggregate rate_400000    all      all 400000 2000000 200000      200000                   258347                5999278  6000000     722 0.000120333     1994   171131  1628156    2946416                                                                 OK            0
-aggregate rate_500000    all      all 500000 2500000 250000      250000                   320143                7479618  7500000   20382   0.0027176     2085  8947543 21206790   25985517                                                                 OK            0
-aggregate rate_600000    all      all 600000 3000000 300000      300000                   383524                8997238  9000000    2762 0.000306889     2174  5873332 11896067   12347363                                         ramp      SATURATED|FREEZE            3
-aggregate rate_800000    all      all 800000 4000000 400000      400000                   308929                5779804 12000000 6220196     0.51835  1186911 80992902 81921889   93662103                                         ramp SATURATED|LOSS|FREEZE            2
+~~~~diff
+diff --git a/benchmark/summarize.py b/benchmark/summarize.py
+index 9abc7cf..321b885 100755
+--- a/benchmark/summarize.py
++++ b/benchmark/summarize.py
+@@ -47,6 +47,22 @@ def receiver_for(latency_csv):
+     return latency_csv.parent.name
+ 
+ 
++def read_lapped_count(path, pattern):
++    try:
++        text = path.read_text(encoding="utf-8", errors="replace")
++    except OSError:
++        return ""
++    match = re.search(pattern, text)
++    return "" if match is None else int(match.group(1))
++
++
++def lapped_counts_for(log_dir):
++    return {
++        "consumer_lapped": read_lapped_count(log_dir / "consumer.log", r"consumer: lapped ([0-9]+) times"),
++        "sender_lapped": read_lapped_count(log_dir / "sender.log", r"sender: sent=[0-9]+ packets=[0-9]+ lapped=([0-9]+)"),
++    }
++
++
+ def discover_latency_csvs(root):
+     if not root.exists():
+         fail(f"input root does not exist: {root}")
+@@ -234,6 +250,7 @@ def summarize_receiver(root, latency_csv, skip_warmup):
+     run_dir = run_dir_for(latency_csv)
+     data = read_run_json(run_dir / "run.json")
+     parameters = data.get("parameters", {})
++    lapped_counts = lapped_counts_for(latency_csv.parent)
+     recorded_warmup = warmup_from(data)
+     warmup = recorded_warmup if skip_warmup is None else int(skip_warmup)
+     samples = read_samples(latency_csv, warmup)
+@@ -279,6 +296,8 @@ def summarize_receiver(root, latency_csv, skip_warmup):
+         "cpu_consumer": parameters.get("cpu_consumer", ""),
+         "sndbuf": parameters.get("sndbuf", ""),
+         "rcvbuf": parameters.get("rcvbuf", ""),
++        "consumer_lapped": lapped_counts["consumer_lapped"],
++        "sender_lapped": lapped_counts["sender_lapped"],
+         "hostname": data.get("hostname", ""),
+         "wall_clock_received_rate": wall_clock_received_rate,
+         "achieved_rate": achieved_rate,
+@@ -376,6 +395,8 @@ def aggregate_rows(root, rows):
+         aggregate["receiver"] = "all"
+         aggregate["aggregate_repeats"] = len(repeat_numbers)
+         aggregate["freeze_count"] = int(sum(1 for row in group_rows if row["freeze_events"]))
++        aggregate["consumer_lapped"] = sum(int(row["consumer_lapped"]) for row in group_rows if row["consumer_lapped"] not in (None, ""))
++        aggregate["sender_lapped"] = sum(int(row["sender_lapped"]) for row in group_rows if row["sender_lapped"] not in (None, ""))
+         aggregate["high_loss"] = any(row["high_loss"] for row in group_rows)
+         aggregate["clock_invalid"] = any(row["clock_invalid"] for row in group_rows)
+         aggregate["void"] = any(row["void"] for row in group_rows)
+@@ -415,7 +436,7 @@ def aggregate_rows(root, rows):
+ 
+ 
+ def public_keys():
+-    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
++    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "consumer_lapped", "sender_lapped", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
+ 
+ 
+ def public_row(row):
+@@ -441,7 +462,7 @@ def print_table(rows, warnings):
+         item = public_row(row)
+         item["flags"] = flags_for(row)
+         display.append(item)
+-    columns = ["row_type", "config", "repeat", "receiver", "rate", "count", "warmup", "skip_warmup", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p99", "p99_9", "max", "ramp_ratio", "ramp_slope_ns", "saturation_triggers", "flags", "freeze_count"]
++    columns = ["row_type", "config", "repeat", "receiver", "rate", "count", "warmup", "skip_warmup", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "consumer_lapped", "sender_lapped", "p50", "p99", "p99_9", "max", "ramp_ratio", "ramp_slope_ns", "saturation_triggers", "flags", "freeze_count"]
+     widths = {column: len(column) for column in columns}
+     lines = []
+     for row in display:
+diff --git a/harness/src/consumer.cpp b/harness/src/consumer.cpp
+index fcd0590..edef6d3 100644
+--- a/harness/src/consumer.cpp
++++ b/harness/src/consumer.cpp
+@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
+   FILE* csv = nullptr;
+   if (!cfg.csv.empty()) {
+     csv = std::fopen(cfg.csv.c_str(), "w");
+-    if (csv) std::fprintf(csv, "seq,latency_ns\n");
++    if (csv) std::fprintf(csv, "seq,latency_ns,send_ts_ns\n");
+   }
+ 
+   uint64_t read_index = cfg.from_edge ? ring.live_edge() : 0;
+@@ -105,9 +105,10 @@ int main(int argc, char** argv) {
+       const uint64_t latency =
+           recv_ts > hdr->send_ts_ns ? recv_ts - hdr->send_ts_ns : 0;
+       acc.record(hdr->seq_id, latency);
+-      if (csv) std::fprintf(csv, "%llu,%llu\n",
++      if (csv) std::fprintf(csv, "%llu,%llu,%llu\n",
+                             (unsigned long long)hdr->seq_id,
+-                            (unsigned long long)latency);
++                            (unsigned long long)latency,
++                            (unsigned long long)hdr->send_ts_ns);
+       ++received;
+       ++read_index;
+       last_progress = recv_ts;
 ~~~~
 
-## Problem 2
+## Prior Lapped Comparison
 
-Overflow investigation for benchmark/results/rate_sweep/20260815T205658Z/rate_800000/rep_1/rx_local/latency.csv:
+Lapped counts from the previous 20260815T205658Z sweep show 800000 lapped heavily in the sender while 600000 did not lap:
 
 ~~~~text
-target benchmark/results/rate_sweep/20260815T205658Z/rate_800000/rep_1/rx_local/latency.csv
-rows 2850372
-ten largest latency_ns values
-seq=3161360 latency_ns=4294970451 delta_from_2^32=3155
-seq=3164081 latency_ns=4294969861 delta_from_2^32=2565
-seq=4399626 latency_ns=88225067 delta_from_2^32=-4206742229
-seq=4399627 latency_ns=88224407 delta_from_2^32=-4206742889
-seq=4399628 latency_ns=88223520 delta_from_2^32=-4206743776
-seq=4399629 latency_ns=88222734 delta_from_2^32=-4206744562
-seq=4399630 latency_ns=88221743 delta_from_2^32=-4206745553
-seq=4399631 latency_ns=88220817 delta_from_2^32=-4206746479
-seq=4399632 latency_ns=88219872 delta_from_2^32=-4206747424
-seq=4399633 latency_ns=88218886 delta_from_2^32=-4206748410
-ten smallest latency_ns values
-seq=1313839 latency_ns=1122 delta_from_2^32=-4294966174
-seq=1376821 latency_ns=1145 delta_from_2^32=-4294966151
-seq=1303980 latency_ns=1147 delta_from_2^32=-4294966149
-seq=1454626 latency_ns=1152 delta_from_2^32=-4294966144
-seq=1315602 latency_ns=1153 delta_from_2^32=-4294966143
-seq=1301032 latency_ns=1154 delta_from_2^32=-4294966142
-seq=255552 latency_ns=1155 delta_from_2^32=-4294966141
-seq=256797 latency_ns=1155 delta_from_2^32=-4294966141
-seq=1761162 latency_ns=1157 delta_from_2^32=-4294966139
-seq=283042 latency_ns=1163 delta_from_2^32=-4294966133
-negative_count=0
-count_gt_2^32=2
-count_within_1000_of_2^32=0
-other runs near 2^32
-none
+benchmark/results/rate_sweep/20260815T205658Z/rate_800000/rep_1/rx_local/sender.log:2:sender: sent=4220702 packets=4220702 lapped=154870
+benchmark/results/rate_sweep/20260815T205658Z/rate_800000/rep_1/rx_local/consumer.log:1:consumer: lapped 0 times
+benchmark/results/rate_sweep/20260815T205658Z/rate_800000/rep_2/rx_local/sender.log:2:sender: sent=4163525 packets=4163525 lapped=226964
+benchmark/results/rate_sweep/20260815T205658Z/rate_800000/rep_2/rx_local/consumer.log:1:consumer: lapped 0 times
+benchmark/results/rate_sweep/20260815T205658Z/rate_800000/rep_3/rx_local/sender.log:2:sender: sent=3995596 packets=3995596 lapped=321703
+benchmark/results/rate_sweep/20260815T205658Z/rate_800000/rep_3/rx_local/consumer.log:1:consumer: lapped 0 times
+benchmark/results/rate_sweep/20260815T205658Z/rate_600000/rep_1/rx_local/sender.log:2:sender: sent=3300000 packets=3300000 lapped=0
+benchmark/results/rate_sweep/20260815T205658Z/rate_600000/rep_1/rx_local/consumer.log:1:consumer: lapped 0 times
+benchmark/results/rate_sweep/20260815T205658Z/rate_600000/rep_2/rx_local/sender.log:2:sender: sent=3300000 packets=3300000 lapped=0
+benchmark/results/rate_sweep/20260815T205658Z/rate_600000/rep_2/rx_local/consumer.log:1:consumer: lapped 0 times
+benchmark/results/rate_sweep/20260815T205658Z/rate_600000/rep_3/rx_local/sender.log:2:sender: sent=3300000 packets=3300000 lapped=0
+benchmark/results/rate_sweep/20260815T205658Z/rate_600000/rep_3/rx_local/consumer.log:1:consumer: lapped 0 times
 ~~~~
 
-The two values above 2^32 are isolated, boundary-adjacent outliers. No negative values were present, no values were within 1000 ns of 2^32, and no other run in this sweep had values near or above that boundary.
+Conclusion: the two boundary-adjacent samples in the excluded 800000 run are consistent with shared-memory ring lapping and corrupted reads from overwritten slots, not instrumentation arithmetic wraparound.
 
-This looks like numeric wraparound or timestamp corruption, not a genuine multi-second transport stall. A real 4.295 second stall should produce a broader neighborhood of multi-second latencies rather than two isolated samples followed by an immediate return to sub-100 ms tail values.
+## Re-Sweep
+
+Command:
+
+~~~~text
+benchmark/sweep_rate.sh --rates 100000,200000,300000,400000,500000,600000
+~~~~
+
+Run root:
+
+~~~~text
+benchmark/results/rate_sweep/20260815T213507Z
+~~~~
+
+summarize.py output:
+
+~~~~text
+ row_type      config repeat receiver   rate   count warmup skip_warmup wall_clock_received_rate achieved_rate received expected dropped  drop_rate consumer_lapped sender_lapped      p50       p99     p99_9       max  ramp_ratio ramp_slope_ns saturation_triggers                 flags freeze_count
+      run rate_100000      1 rx_local 100000  500000  50000       50000                  64083.4       99036.2   495180   500000    4820    0.00964               0             0     1905  45480585  82217415  86981868    0.891692       4.33531                                      LOSS             
+      run rate_100000      2 rx_local 100000  500000  50000       50000                  87356.7        100001   500000   500000       0          0               0             0     2346    892542   2758138   4615554     1.36585     0.0830716                                        OK             
+      run rate_100000      3 rx_local 100000  500000  50000       50000                  65119.2         99996   499979   500000      21    4.2e-05               0             0     2628   1085778   3159912   4351511     1.00452    0.00905858                                        OK             
+      run rate_200000      1 rx_local 200000 1000000 100000      100000                   128471        199231   996152  1000000    3848   0.003848               0             0     2774   7112627  12013756  13134373     64.5132       1.07132                ramp             SATURATED             
+      run rate_200000      2 rx_local 200000 1000000 100000      100000                   128355        199544   997720  1000000    2280    0.00228               0             0     2702   7925021  31677152  35694536     1.07019     -0.781032                                        OK             
+      run rate_200000      3 rx_local 200000 1000000 100000      100000                   128994        199453   997262  1000000    2738   0.002738               0             0     2446   2131631   4474283   6161097     1.28169      0.114277                                        OK             
+      run rate_300000      1 rx_local 300000 1500000 150000      150000                   190029        297444  1486778  1500000   13222 0.00881467               0             0     3106  23107621  27419295  30337544     1.23864       1.22962                                      LOSS             
+      run rate_300000      2 rx_local 300000 1500000 150000      150000                   188244        299097  1494797  1500000    5203 0.00346867               0             0     3028   3692975   7472762  10315267     1.89238      0.130391                                        OK             
+      run rate_300000      3 rx_local 300000 1500000 150000      150000                   183825        296068  1479893  1500000   20107  0.0134047               3             2    51417 208498215 217100024 262587140     366.612       29.1635                ramp SATURATED|LOSS|FREEZE             
+      run rate_400000      1 rx_local 400000 2000000 200000      200000                   196851        315390  1578900  2000000  421100    0.21055               7         10328    85569 166737790 199343963 199826429     22302.8       34.6251           ramp|rate SATURATED|LOSS|FREEZE             
+      run rate_400000      2 rx_local 400000 2000000 200000      200000                   243556        386526  1931731  2000000   68269  0.0341345               6             0    27136 192673973 231123892 235387073     3935.33       23.6256                ramp SATURATED|LOSS|FREEZE             
+      run rate_400000      3 rx_local 400000 2000000 200000      200000                   170073        268329  1336485  2000000  663515   0.331757               2          5651 56644897 163856206 179383449 181678949      2.0114      -40.8163           ramp|rate SATURATED|LOSS|FREEZE             
+      run rate_500000      1 rx_local 500000 2500000 250000      250000                   305130        498911  2492751  2500000    7249  0.0028996               2             0    18377 109402110 128360751 131074777     96.2752       1.02502                ramp      SATURATED|FREEZE             
+      run rate_500000      2 rx_local 500000 2500000 250000      250000                   230691        361418  1802155  2500000  697845   0.279138               8             4 11726043 125851909 144479158 147462316 0.000333926       -12.636                rate SATURATED|LOSS|FREEZE             
+      run rate_500000      3 rx_local 500000 2500000 250000      250000                   317021        499961  2469925  2500000   30075    0.01203               0             0     5185  68959501 101200315 104844080     3.91697     -0.589215                ramp        SATURATED|LOSS             
+      run rate_600000      1 rx_local 600000 3000000 300000      300000                   234376        369207  1845297  3000000 1154703   0.384901               0        100052  1354974 178614398 198284119 200770349     32118.4       62.7314           ramp|rate SATURATED|LOSS|FREEZE             
+      run rate_600000      2 rx_local 600000 3000000 300000      300000                   189918        306649  1530750  3000000 1469250    0.48975               5         67636  2296150 178096484 184623844 186333554     21.0012       70.3402           ramp|rate SATURATED|LOSS|FREEZE             
+      run rate_600000      3 rx_local 600000 3000000 300000      300000                   157871        280936  1390329  3000000 1609671   0.536557              27         87997 82987383 400614463 415622545 417261131     2.26794       95.9414           ramp|rate        SATURATED|LOSS             
+aggregate rate_100000    all      all 100000  500000  50000       50000                  65119.2         99996  1495159  1500000    4841 0.00322733               0             0     2346   1085778   3159912   4615554                                                                LOSS            0
+aggregate rate_200000    all      all 200000 1000000 100000      100000                   128471        199453  2991134  3000000    8866 0.00295533               0             0     2702   7112627  12013756  13134373                                          ramp             SATURATED            0
+aggregate rate_300000    all      all 300000 1500000 150000      150000                   188244        297444  4461468  4500000   38532 0.00856267               3             2     3106  23107621  27419295  30337544                                          ramp        SATURATED|LOSS            1
+aggregate rate_400000    all      all 400000 2000000 200000      200000                   196851        315390  4847116  6000000 1152884   0.192147              15         15979    85569 166737790 199343963 199826429                                     ramp|rate SATURATED|LOSS|FREEZE            3
+aggregate rate_500000    all      all 500000 2500000 250000      250000                   305130        498911  6764831  7500000  735169  0.0980225              10             4    18377 109402110 128360751 131074777                                          ramp SATURATED|LOSS|FREEZE            2
+aggregate rate_600000    all      all 600000 3000000 300000      300000                   189918        306649  4766376  9000000 4233624   0.470403              32        255685  2296150 178614398 198284119 200770349                                     ramp|rate SATURATED|LOSS|FREEZE            2
+~~~~
 
 ## Baseline
 
-A trustworthy corrected baseline cannot be stated from the existing artifacts because the requested steady-state achieved-rate measurement requires send timestamps that were not recorded, and the high-rate data contains evidence consistent with numeric wraparound. Per instruction, I am reporting the wraparound finding and stopping before treating these measurements as a Phase 2 baseline.
+Highest offered rate with aggregate row not saturated: 100000
+
+Achieved rate at that point: 99995.99967201214 messages per second
+
+Aggregate p50 at that point: 2346.0 ns
+
+Aggregate p99 at that point: 1085778.4199999983 ns
+
+Aggregate p99.9 at that point: 3159912.386000003 ns

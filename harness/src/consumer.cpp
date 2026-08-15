@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
   FILE* csv = nullptr;
   if (!cfg.csv.empty()) {
     csv = std::fopen(cfg.csv.c_str(), "w");
-    if (csv) std::fprintf(csv, "seq,latency_ns\n");
+    if (csv) std::fprintf(csv, "seq,latency_ns,send_ts_ns\n");
   }
 
   uint64_t read_index = cfg.from_edge ? ring.live_edge() : 0;
@@ -105,9 +105,10 @@ int main(int argc, char** argv) {
       const uint64_t latency =
           recv_ts > hdr->send_ts_ns ? recv_ts - hdr->send_ts_ns : 0;
       acc.record(hdr->seq_id, latency);
-      if (csv) std::fprintf(csv, "%llu,%llu\n",
+      if (csv) std::fprintf(csv, "%llu,%llu,%llu\n",
                             (unsigned long long)hdr->seq_id,
-                            (unsigned long long)latency);
+                            (unsigned long long)latency,
+                            (unsigned long long)hdr->send_ts_ns);
       ++received;
       ++read_index;
       last_progress = recv_ts;

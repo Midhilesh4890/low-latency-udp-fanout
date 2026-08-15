@@ -344,6 +344,16 @@ def aggregate_rows(root, rows):
         aggregate["clock_invalid"] = any(row["clock_invalid"] for row in group_rows)
         aggregate["void"] = any(row["void"] for row in group_rows)
         aggregate["valid_latency"] = bool(valid)
+        expected_values = [int(row["expected"]) for row in group_rows if row["expected"] not in (None, "")]
+        received_values = [int(row["received"]) for row in group_rows if row["received"] not in (None, "")]
+        dropped_values = [int(row["dropped"]) for row in group_rows if row["dropped"] not in (None, "")]
+        expected_total = sum(expected_values)
+        received_total = sum(received_values)
+        dropped_total = sum(dropped_values)
+        aggregate["received"] = received_total if received_values else ""
+        aggregate["expected"] = expected_total if expected_values else ""
+        aggregate["dropped"] = dropped_total if dropped_values else ""
+        aggregate["drop_rate"] = float(dropped_total / expected_total) if expected_total > 0 else ""
         for field in ("p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max"):
             values = [float(row[field]) for row in valid]
             aggregate[field] = percentile(values, 50.0) if values else float("nan")
@@ -351,10 +361,6 @@ def aggregate_rows(root, rows):
                 aggregate[f"{field}_median"] = aggregate[field]
                 aggregate[f"{field}_min"] = min(values) if values else float("nan")
                 aggregate[f"{field}_max"] = max(values) if values else float("nan")
-        aggregate["received"] = ""
-        aggregate["expected"] = ""
-        aggregate["dropped"] = ""
-        aggregate["drop_rate"] = ""
         aggregate["wall_clock_received_rate"] = ""
         aggregate["ramp_ratio"] = ""
         aggregate["ramp_slope_ns"] = ""

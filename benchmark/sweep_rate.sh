@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+set -u
+
+rates="25000,50000,100000,150000,200000,300000,400000,600000,800000,1000000"
+count="200000"
+slots="65536"
+repeats="3"
+outdir=""
+cpu_producer=""
+cpu_sender=""
+cpu_receiver=""
+cpu_consumer=""
+sndbuf=""
+rcvbuf=""
+
+usage() {
+  printf '%s\n' "usage: benchmark/sweep_rate.sh [--rates A,B,C] [--count N] [--slots N] [--repeats N] [--outdir DIR] [--cpu-producer N] [--cpu-sender N] [--cpu-receiver N] [--cpu-consumer N] [--sndbuf BYTES] [--rcvbuf BYTES]"
+}
+
+require_value() {
+  if [[ -z "${2+x}" ]]; then
+    printf '%s\n' "missing value for $1" >&2
+    exit 2
+  fi
+}
+
+while [[ -n "${1+x}" ]]; do
+  case "$1" in
+    --rates)
+      require_value "$@"
+      rates="$2"
+      shift 2
+      ;;
+    --count)
+      require_value "$@"
+      count="$2"
+      shift 2
+      ;;
+    --slots)
+      require_value "$@"
+      slots="$2"
+      shift 2
+      ;;
+    --repeats)
+      require_value "$@"
+      repeats="$2"
+      shift 2
+      ;;
+    --outdir)
+      require_value "$@"
+      outdir="$2"
+      shift 2
+      ;;
+    --cpu-producer)
+      require_value "$@"
+      cpu_producer="$2"
+      shift 2
+      ;;
+    --cpu-sender)
+      require_value "$@"
+      cpu_sender="$2"
+      shift 2
+      ;;
+    --cpu-receiver)
+      require_value "$@"
+      cpu_receiver="$2"
+      shift 2
+      ;;
+    --cpu-consumer)
+      require_value "$@"
+      cpu_consumer="$2"
+      shift 2
+      ;;
+    --sndbuf)
+      require_value "$@"
+      sndbuf="$2"
+      shift 2
+      ;;
+    --rcvbuf)
+      require_value "$@"
+      rcvbuf="$2"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      printf '%s\n' "unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+case "$repeats" in
+  ''|*[!0-9]*)
+    printf '%s\n' "--repeats must be a positive integer" >&2
+    exit 2
+    ;;
+esac
+
+if (( repeats < 1 )); then
+  printf '%s\n' "--repeats must be a positive integer" >&2
+  exit 2
+fi
+
+IFS=',' read -r -a rate_values <<< "$rates"
+if (( ${#rate_values[@]} == 0 )); then
+  printf '%s\n' "--rates must contain at least one rate" >&2
+  exit 2
+fi
+
+for rate in "${rate_values[@]}"; do
+  case "$rate" in
+    ''|*[!0-9]*)
+      printf '%s\n' "--rates must contain positive integer rates" >&2
+      exit 2
+      ;;
+  esac
+done
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+
+if [[ -z "$outdir" ]]; then
+  outdir="$repo_root/benchmark/results/rate_sweep"
+fi
+
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+root="$(mkdir -p "$outdir/$timestamp" && cd "$outdir/$timestamp" && pwd)"
+started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+completed_file="$root/.completed_runs"
+failures_file="$root/.failures"
+: >"$completed_file"
+: >"$failures_file"
+
+printf 'sweep root: %s\n' "$root" >&2
+printf 'rates: %s repeats: %s count: %s slots: %s\n' "$rates" "$repeats" "$count" "$slots" >&2
+
+for rate in "${rate_values[@]}"; do
+  for repeat in $(seq 1 "$repeats"); do
+    run_dir="$root/rate_$rate/rep_$repeat"
+    mkdir -p "$run_dir"
+    printf 'starting rate=%s repeat=%s outdir=%s\n' "$rate" "$repeat" "$run_dir" >&2
+    command=("$script_dir/run_once.sh" --rate "$rate" --count "$count" --slots "$slots" --outdir "$run_dir")
+    if [[ -n "$cpu_producer" ]]; then
+      command+=(--cpu-producer "$cpu_producer")
+    fi
+    if [[ -n "$cpu_sender" ]]; then
+      command+=(--cpu-sender "$cpu_sender")
+    fi
+    if [[ -n "$cpu_receiver" ]]; then
+      command+=(--cpu-receiver "$cpu_receiver")
+    fi
+    if [[ -n "$cpu_consumer" ]]; then
+      command+=(--cpu-consumer "$cpu_consumer")
+    fi
+    if [[ -n "$sndbuf" ]]; then
+      command+=(--sndbuf "$sndbuf")
+    fi
+    if [[ -n "$rcvbuf" ]]; then
+      command+=(--rcvbuf "$rcvbuf")
+    fi
+    exit_code=0
+    "${command[@]}" || exit_code="$?"
+    if [[ "$exit_code" == "0" ]]; then
+      printf '%s\n' "$run_dir" >>"$completed_file"
+      printf 'completed rate=%s repeat=%s\n' "$rate" "$repeat" >&2
+    else
+      printf '%s\t%s\t%s\t%s\n' "$run_dir" "$rate" "$repeat" "$exit_code" >>"$failures_file"
+      printf 'failed rate=%s repeat=%s exit_code=%s\n' "$rate" "$repeat" "$exit_code" >&2
+    fi
+    sleep 2
+  done
+done
+
+finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+export SWEEP_ROOT="$root"
+export SWEEP_RATES="$rates"
+export SWEEP_COUNT="$count"
+export SWEEP_SLOTS="$slots"
+export SWEEP_REPEATS="$repeats"
+export SWEEP_OUTDIR="$outdir"
+export SWEEP_TIMESTAMP="$timestamp"
+export SWEEP_STARTED_AT="$started_at"
+export SWEEP_FINISHED_AT="$finished_at"
+export SWEEP_CPU_PRODUCER="$cpu_producer"
+export SWEEP_CPU_SENDER="$cpu_sender"
+export SWEEP_CPU_RECEIVER="$cpu_receiver"
+export SWEEP_CPU_CONSUMER="$cpu_consumer"
+export SWEEP_SNDBUF="$sndbuf"
+export SWEEP_RCVBUF="$rcvbuf"
+export SWEEP_COMPLETED_FILE="$completed_file"
+export SWEEP_FAILURES_FILE="$failures_file"
+
+if ! python3 - "$root/sweep.json" <<'PY'
+import json
+import os
+import sys
+
+def optional_integer(name):
+    value = os.environ[name]
+    return None if value == "" else int(value)
+
+with open(os.environ["SWEEP_COMPLETED_FILE"], "r", encoding="utf-8") as handle:
+    completed = [line.rstrip("\n") for line in handle if line.rstrip("\n")]
+
+failures = []
+with open(os.environ["SWEEP_FAILURES_FILE"], "r", encoding="utf-8") as handle:
+    for line in handle:
+        line = line.rstrip("\n")
+        if not line:
+            continue
+        run_dir, rate, repeat, exit_code = line.split("\t")
+        failures.append(
+            {
+                "run_dir": run_dir,
+                "rate": int(rate),
+                "repeat": int(repeat),
+                "exit_code": int(exit_code),
+            }
+        )
+
+data = {
+    "root": os.environ["SWEEP_ROOT"],
+    "timestamp": os.environ["SWEEP_TIMESTAMP"],
+    "started_at": os.environ["SWEEP_STARTED_AT"],
+    "finished_at": os.environ["SWEEP_FINISHED_AT"],
+    "parameters": {
+        "rates": [int(rate) for rate in os.environ["SWEEP_RATES"].split(",")],
+        "count": int(os.environ["SWEEP_COUNT"]),
+        "slots": int(os.environ["SWEEP_SLOTS"]),
+        "repeats": int(os.environ["SWEEP_REPEATS"]),
+        "outdir": os.environ["SWEEP_OUTDIR"],
+        "cpu_producer": optional_integer("SWEEP_CPU_PRODUCER"),
+        "cpu_sender": optional_integer("SWEEP_CPU_SENDER"),
+        "cpu_receiver": optional_integer("SWEEP_CPU_RECEIVER"),
+        "cpu_consumer": optional_integer("SWEEP_CPU_CONSUMER"),
+        "sndbuf": optional_integer("SWEEP_SNDBUF"),
+        "rcvbuf": optional_integer("SWEEP_RCVBUF"),
+    },
+    "completed_run_dirs": completed,
+    "failures": failures,
+}
+
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+PY
+then
+  printf '%s\n' "failed to write $root/sweep.json" >&2
+  exit 1
+fi
+
+rm -f "$completed_file" "$failures_file"
+printf 'wrote %s\n' "$root/sweep.json" >&2
+printf '%s\n' "$root"

@@ -9,3 +9,4 @@ benchmark/results/**
 !benchmark/results/**/run.json
 !benchmark/results/**/sweep.json
 !benchmark/results/**/env_snapshot*
+reports/handoff/

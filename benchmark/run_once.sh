@@ -23,7 +23,7 @@ has_destinations="false"
 declare -a destinations=()
 
 usage() {
-  printf '%s\n' "usage: bench/run_once.sh [--role all|rx|tx] [--rate N] [--count N] [--slots N] [--type trade|bbo|book|mixed] [--in-shm NAME] [--out-shm NAME] [--port PORT] [--host HOST] [--outdir DIR] [--warmup N] [--cpu-producer N] [--cpu-sender N] [--cpu-receiver N] [--cpu-consumer N] [--sndbuf BYTES] [--rcvbuf BYTES] [--no-build] [--dst HOST:PORT]"
+  printf '%s\n' "usage: benchmark/run_once.sh [--role all|rx|tx] [--rate N] [--count N] [--slots N] [--type trade|bbo|book|mixed] [--in-shm NAME] [--out-shm NAME] [--port PORT] [--host HOST] [--outdir DIR] [--warmup N] [--cpu-producer N] [--cpu-sender N] [--cpu-receiver N] [--cpu-consumer N] [--sndbuf BYTES] [--rcvbuf BYTES] [--no-build] [--dst HOST:PORT]"
 }
 
 require_value() {
@@ -155,7 +155,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 
 if [[ -z "$outdir" ]]; then
-  outdir="$repo_root/bench/results/run_$(date -u +%Y%m%dT%H%M%SZ)"
+  outdir="$repo_root/benchmark/results/run_$(date -u +%Y%m%dT%H%M%SZ)"
 fi
 
 outdir="$(mkdir -p "$outdir" && cd "$outdir" && pwd)"

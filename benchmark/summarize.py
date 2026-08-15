@@ -17,7 +17,7 @@ FREEZE_LIMIT = 100.0
 def parse_args():
     parser = argparse.ArgumentParser(description="Summarize benchmark latency runs.")
     parser.add_argument("root", type=Path)
-    parser.add_argument("--skip-warmup", type=int, default=0)
+    parser.add_argument("--skip-warmup", type=int, default=None)
     parser.add_argument("--min-rate", type=float, default=None)
     parser.add_argument("--max-rate", type=float, default=None)
     parser.add_argument("--json", action="store_true")
@@ -187,13 +187,15 @@ def flags_for(row):
     flags = []
     if row.get("saturated"):
         flags.append("SATURATED")
+    if row.get("high_loss"):
+        flags.append("LOSS")
     if row.get("clock_invalid"):
         flags.append("CLOCK_INVALID")
     if row.get("void"):
         flags.append("VOID")
     if row.get("freeze_events"):
         flags.append("FREEZE")
-    return "OK" if not flags else "|".join(flags)
+    return "OK" if not flags else chr(124).join(flags)
 
 
 def metric_key(value):
@@ -205,7 +207,7 @@ def summarize_receiver(root, latency_csv, skip_warmup):
     data = read_run_json(run_dir / "run.json")
     parameters = data.get("parameters", {})
     recorded_warmup = warmup_from(data)
-    warmup = int(skip_warmup)
+    warmup = recorded_warmup if skip_warmup is None else int(skip_warmup)
     values = read_latencies(latency_csv, warmup)
     received = int(len(values))
     expected = expected_from(data, warmup)
@@ -222,7 +224,8 @@ def summarize_receiver(root, latency_csv, skip_warmup):
     bucket_p50s = [percentile(bucket, 50.0) for bucket in deciles]
     min_bucket_p50 = min(bucket_p50s)
     freeze_events = any(value > min_bucket_p50 * FREEZE_LIMIT for value in bucket_p50s)
-    saturated = bool(ramp_ratio > RAMP_LIMIT or (drop_rate is not None and drop_rate > RATE_EPSILON))
+    high_loss = bool(drop_rate is not None and drop_rate > RATE_EPSILON)
+    saturated = bool(ramp_ratio > RAMP_LIMIT)
     duration = float(data.get("wall_clock_duration_s", 0.0))
     wall_clock_received_rate = float(received / duration) if duration > 0.0 else float("nan")
     metrics = {metric_key(item): percentile(values, item) for item in PERCENTILES}
@@ -261,6 +264,7 @@ def summarize_receiver(root, latency_csv, skip_warmup):
         "ramp_ratio": ramp_ratio,
         "ramp_slope_ns": ramp_slope(values),
         "saturated": saturated,
+        "high_loss": high_loss,
         "freeze_events": freeze_events,
         "clock_invalid": clock_invalid,
         "void": void,
@@ -336,6 +340,7 @@ def aggregate_rows(root, rows):
         aggregate["aggregate_repeats"] = len(repeat_numbers)
         aggregate["freeze_count"] = int(sum(1 for row in group_rows if row["freeze_events"]))
         aggregate["saturated"] = any(row["saturated"] for row in group_rows)
+        aggregate["high_loss"] = any(row["high_loss"] for row in group_rows)
         aggregate["clock_invalid"] = any(row["clock_invalid"] for row in group_rows)
         aggregate["void"] = any(row["void"] for row in group_rows)
         aggregate["valid_latency"] = bool(valid)
@@ -360,7 +365,7 @@ def aggregate_rows(root, rows):
 
 
 def public_keys():
-    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
+    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
 
 
 def public_row(row):

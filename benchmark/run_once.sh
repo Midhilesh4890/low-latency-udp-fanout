@@ -162,6 +162,7 @@ outdir="$(mkdir -p "$outdir" && cd "$outdir" && pwd)"
 rx_dir="$outdir/rx_local"
 log_dir="$outdir"
 latency_csv="$rx_dir/latency.csv"
+latency_bin="$rx_dir/latency.bin"
 
 if [[ "$role" == "all" || "$role" == "rx" ]]; then
   mkdir -p "$rx_dir"
@@ -224,7 +225,7 @@ launch_process() {
 }
 
 receiver_command=("$repo_root/harness/bin/receiver" --out-shm "$out_shm" --slots "$slots" --port "$port" --count "$total_count" --rcvbuf "$rcvbuf")
-consumer_command=("$repo_root/harness/bin/consumer" --shm "$out_shm" --slots "$slots" --from-edge --count "$total_count" --csv "$latency_csv")
+consumer_command=("$repo_root/harness/bin/consumer" --shm "$out_shm" --slots "$slots" --from-edge --count "$total_count" --csv "$latency_bin")
 producer_command=("$repo_root/harness/bin/producer" --shm "$in_shm" --slots "$slots" --count "$total_count" --rate "$rate" --type "$message_type")
 sender_command=("$repo_root/harness/bin/sender" --in-shm "$in_shm" --slots "$slots" --count "$total_count" --sndbuf "$sndbuf")
 
@@ -261,6 +262,14 @@ for index in "${!process_pids[@]}"; do
 done
 
 if [[ "$role" == "all" || "$role" == "rx" ]]; then
+  if [[ -s "$latency_bin" ]]; then
+    if ! python3 "$script_dir/bin_to_csv.py" "$latency_bin" "$latency_csv"; then
+      script_exit_code=1
+    fi
+  else
+    script_exit_code=1
+  fi
+
   if [[ ! -s "$latency_csv" ]]; then
     script_exit_code=1
   elif [[ "$(wc -l < "$latency_csv")" -le 1 ]]; then

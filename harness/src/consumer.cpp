@@ -9,7 +9,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
 #include <string>
+#include <unistd.h>
+#include <vector>
 
 #include "message.h"
 #include "metrics.h"
@@ -26,6 +29,12 @@ struct Config {
   bool from_edge = false;
   std::string csv;
   uint64_t idle_ms = 2000;
+};
+
+struct CsvRecord {
+  uint64_t seq_id;
+  uint64_t send_ts_ns;
+  uint64_t recv_ts_ns;
 };
 
 Config parse_args(int argc, char** argv) {
@@ -81,10 +90,9 @@ int main(int argc, char** argv) {
 
   metrics::Accumulator acc(cfg.count ? cfg.count : 1u << 20);
 
-  FILE* csv = nullptr;
+  std::vector<CsvRecord> records;
   if (!cfg.csv.empty()) {
-    csv = std::fopen(cfg.csv.c_str(), "w");
-    if (csv) std::fprintf(csv, "seq,latency_ns,send_ts_ns\n");
+    records.resize(cfg.count ? cfg.count : 1024);
   }
 
   uint64_t read_index = cfg.from_edge ? ring.live_edge() : 0;
@@ -105,10 +113,12 @@ int main(int argc, char** argv) {
       const uint64_t latency =
           recv_ts > hdr->send_ts_ns ? recv_ts - hdr->send_ts_ns : 0;
       acc.record(hdr->seq_id, latency);
-      if (csv) std::fprintf(csv, "%llu,%llu,%llu\n",
-                            (unsigned long long)hdr->seq_id,
-                            (unsigned long long)latency,
-                            (unsigned long long)hdr->send_ts_ns);
+      if (!cfg.csv.empty()) {
+        if (received == records.size()) {
+          records.resize(records.empty() ? 1024 : records.size() * 2);
+        }
+        records[received] = CsvRecord{hdr->seq_id, hdr->send_ts_ns, recv_ts};
+      }
       ++received;
       ++read_index;
       last_progress = recv_ts;
@@ -120,7 +130,24 @@ int main(int argc, char** argv) {
     }
   }
 
-  if (csv) std::fclose(csv);
+  if (!cfg.csv.empty()) {
+    const int fd = open(cfg.csv.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0644);
+    if (fd < 0) {
+      perror("open");
+      return 1;
+    }
+    const size_t bytes = static_cast<size_t>(received) * sizeof(CsvRecord);
+    const ssize_t n = write(fd, records.data(), bytes);
+    if (n < 0 || static_cast<size_t>(n) != bytes) {
+      perror("write");
+      close(fd);
+      return 1;
+    }
+    if (close(fd) != 0) {
+      perror("close");
+      return 1;
+    }
+  }
 
   fprintf(stderr, "consumer: lapped %llu times\n",
           (unsigned long long)lapped_events);

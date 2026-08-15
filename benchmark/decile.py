@@ -143,6 +143,7 @@ def verdict_for(rows, latencies_us):
     ramp_ratio = ratio(float(p50s[-1]), float(p50s[0]))
     highest_max_index = int(rows[max(range(len(maxes)), key=maxes.__getitem__)]["index"])
     tail_fraction = float(sum(1 for value in latencies_us if value > (global_p50 * 10.0)) / len(latencies_us))
+    tail_fraction_100us = float(sum(1 for value in latencies_us if value > 100.0) / len(latencies_us))
     p50_flat_ratio = ratio(float(max(p50s)), float(min(p50s)))
     fastest_latency = float(min(latencies_us))
     backlog_ratio = ratio(float(min(p50s)), fastest_latency)
@@ -174,6 +175,8 @@ def verdict_for(rows, latencies_us):
         "ramp_ratio": ramp_ratio,
         "highest_max_index": highest_max_index,
         "tail_fraction": tail_fraction,
+        "tail_fraction_100us": tail_fraction_100us,
+        "baseline_elevation": backlog_ratio,
         "p50_flat_ratio": p50_flat_ratio,
         "backlog_ratio": backlog_ratio,
         "nondecreasing_steps": nondecreasing_steps,
@@ -208,6 +211,8 @@ def table_lines(label, latency_csv, warmup, rows, details):
             f"ramp_ratio: {details['ramp_ratio']:.6f}",
             f"highest_max_bucket: {details['highest_max_index']}",
             f"tail_fraction_gt_10x_global_p50: {details['tail_fraction']:.6f}",
+            f"tail_fraction_gt_100us: {details['tail_fraction_100us']:.6f}",
+            f"baseline_elevation: {details['baseline_elevation']:.6f} quietest_bucket_p50_us/global_min_latency_us",
             f"threshold STALL: 1<=localized_p50_buckets<=2 where bucket_p50_us>=median_bucket_p50_us*{STALL_P50_MULTIPLE:.1f}; rest_p50_flat_ratio<={STALL_FLAT_P50_RATIO:.2f}; 1<=max_spike_buckets<=2 where bucket_max_us>=median_bucket_max_us*{STALL_MAX_MULTIPLE:.1f}; localized_p50_buckets={stall_bucket_text}; rest_p50_flat_ratio={details['rest_flat_ratio']:.6f}; max_spike_buckets={max_spike_text}",
             f"threshold RAMP: ramp_ratio>={RAMP_MIN_RATIO:.2f}; nondecreasing_steps>={RAMP_MIN_NONDECREASING_STEPS}/9 with drop_tolerance={RAMP_DROP_TOLERANCE:.2%} of min_bucket_p50; nondecreasing_steps={details['nondecreasing_steps']}",
             f"threshold BACKLOG: min_bucket_p50/fastest_latency>={BACKLOG_MIN_TO_FASTEST_RATIO:.2f}; p50_flat_ratio<={BACKLOG_FLAT_P50_RATIO:.2f}; min_bucket_p50/fastest_latency={details['backlog_ratio']:.6f}; p50_flat_ratio={details['p50_flat_ratio']:.6f}",

@@ -12,6 +12,7 @@ PERCENTILES = (50.0, 90.0, 99.0, 99.9, 99.99)
 RATE_EPSILON = 0.005
 RAMP_LIMIT = 2.0
 FREEZE_LIMIT = 100.0
+ACHIEVED_RATE_RATIO = 0.80
 
 
 def parse_args():
@@ -198,6 +199,15 @@ def flags_for(row):
     return "OK" if not flags else chr(124).join(flags)
 
 
+def saturation_trigger_label(ramp, rate):
+    values = []
+    if ramp:
+        values.append("ramp")
+    if rate:
+        values.append("rate")
+    return chr(124).join(values)
+
+
 def metric_key(value):
     return "p" + str(value).rstrip(chr(48)).rstrip(chr(46)).replace(chr(46), chr(95))
 
@@ -225,9 +235,12 @@ def summarize_receiver(root, latency_csv, skip_warmup):
     min_bucket_p50 = min(bucket_p50s)
     freeze_events = any(value > min_bucket_p50 * FREEZE_LIMIT for value in bucket_p50s)
     high_loss = bool(drop_rate is not None and drop_rate > RATE_EPSILON)
-    saturated = bool(ramp_ratio > RAMP_LIMIT)
     duration = float(data.get("wall_clock_duration_s", 0.0))
     wall_clock_received_rate = float(received / duration) if duration > 0.0 else float("nan")
+    offered_rate = offered_rate_from(data)
+    saturated_by_ramp = bool(ramp_ratio > RAMP_LIMIT)
+    saturated_by_rate = bool(offered_rate is not None and not math.isnan(wall_clock_received_rate) and wall_clock_received_rate < offered_rate * ACHIEVED_RATE_RATIO)
+    saturated = bool(saturated_by_ramp or saturated_by_rate)
     metrics = {metric_key(item): percentile(values, item) for item in PERCENTILES}
     row = {
         "row_type": "run",
@@ -235,7 +248,7 @@ def summarize_receiver(root, latency_csv, skip_warmup):
         "repeat": "",
         "run_dir": str(run_dir),
         "receiver": receiver_for(latency_csv),
-        "offered_rate": offered_rate_from(data),
+        "offered_rate": offered_rate,
         "rate": parameters.get("rate", ""),
         "count": parameters.get("count", ""),
         "slots": parameters.get("slots", ""),
@@ -264,6 +277,9 @@ def summarize_receiver(root, latency_csv, skip_warmup):
         "ramp_ratio": ramp_ratio,
         "ramp_slope_ns": ramp_slope(values),
         "saturated": saturated,
+        "saturated_by_ramp": saturated_by_ramp,
+        "saturated_by_rate": saturated_by_rate,
+        "saturation_triggers": saturation_trigger_label(saturated_by_ramp, saturated_by_rate),
         "high_loss": high_loss,
         "freeze_events": freeze_events,
         "clock_invalid": clock_invalid,
@@ -339,7 +355,6 @@ def aggregate_rows(root, rows):
         aggregate["receiver"] = "all"
         aggregate["aggregate_repeats"] = len(repeat_numbers)
         aggregate["freeze_count"] = int(sum(1 for row in group_rows if row["freeze_events"]))
-        aggregate["saturated"] = any(row["saturated"] for row in group_rows)
         aggregate["high_loss"] = any(row["high_loss"] for row in group_rows)
         aggregate["clock_invalid"] = any(row["clock_invalid"] for row in group_rows)
         aggregate["void"] = any(row["void"] for row in group_rows)
@@ -347,6 +362,7 @@ def aggregate_rows(root, rows):
         expected_values = [int(row["expected"]) for row in group_rows if row["expected"] not in (None, "")]
         received_values = [int(row["received"]) for row in group_rows if row["received"] not in (None, "")]
         dropped_values = [int(row["dropped"]) for row in group_rows if row["dropped"] not in (None, "")]
+        achieved_values = [float(row["wall_clock_received_rate"]) for row in group_rows if row["wall_clock_received_rate"] not in (None, "") and not math.isnan(float(row["wall_clock_received_rate"]))]
         expected_total = sum(expected_values)
         received_total = sum(received_values)
         dropped_total = sum(dropped_values)
@@ -354,6 +370,11 @@ def aggregate_rows(root, rows):
         aggregate["expected"] = expected_total if expected_values else ""
         aggregate["dropped"] = dropped_total if dropped_values else ""
         aggregate["drop_rate"] = float(dropped_total / expected_total) if expected_total > 0 else ""
+        aggregate["wall_clock_received_rate"] = percentile(achieved_values, 50.0) if achieved_values else ""
+        aggregate["saturated_by_ramp"] = any(row["saturated_by_ramp"] for row in group_rows)
+        aggregate["saturated_by_rate"] = bool(source["offered_rate"] is not None and aggregate["wall_clock_received_rate"] != "" and aggregate["wall_clock_received_rate"] < float(source["offered_rate"]) * ACHIEVED_RATE_RATIO)
+        aggregate["saturated"] = bool(aggregate["saturated_by_ramp"] or aggregate["saturated_by_rate"])
+        aggregate["saturation_triggers"] = saturation_trigger_label(aggregate["saturated_by_ramp"], aggregate["saturated_by_rate"])
         for field in ("p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max"):
             values = [float(row[field]) for row in valid]
             aggregate[field] = percentile(values, 50.0) if values else float("nan")
@@ -361,7 +382,7 @@ def aggregate_rows(root, rows):
                 aggregate[f"{field}_median"] = aggregate[field]
                 aggregate[f"{field}_min"] = min(values) if values else float("nan")
                 aggregate[f"{field}_max"] = max(values) if values else float("nan")
-        aggregate["wall_clock_received_rate"] = ""
+
         aggregate["ramp_ratio"] = ""
         aggregate["ramp_slope_ns"] = ""
         aggregate["fanout_spread_p99"] = ""
@@ -371,7 +392,7 @@ def aggregate_rows(root, rows):
 
 
 def public_keys():
-    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
+    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
 
 
 def public_row(row):
@@ -397,7 +418,7 @@ def print_table(rows, warnings):
         item = public_row(row)
         item["flags"] = flags_for(row)
         display.append(item)
-    columns = ["row_type", "config", "repeat", "receiver", "rate", "count", "warmup", "skip_warmup", "wall_clock_received_rate", "received", "expected", "dropped", "drop_rate", "p50", "p99", "max", "ramp_ratio", "ramp_slope_ns", "flags", "freeze_count"]
+    columns = ["row_type", "config", "repeat", "receiver", "rate", "count", "warmup", "skip_warmup", "wall_clock_received_rate", "received", "expected", "dropped", "drop_rate", "p50", "p99", "p99_9", "max", "ramp_ratio", "ramp_slope_ns", "saturation_triggers", "flags", "freeze_count"]
     widths = {column: len(column) for column in columns}
     lines = []
     for row in display:

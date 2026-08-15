@@ -2,7 +2,10 @@
 set -u
 
 rates="25000,50000,100000,150000,200000,300000,400000,600000,800000,1000000"
-count="200000"
+count=""
+warmup=""
+warmup_seconds="0.5"
+duration_seconds="5.0"
 slots="65536"
 repeats="3"
 outdir=""
@@ -14,7 +17,7 @@ sndbuf=""
 rcvbuf=""
 
 usage() {
-  printf '%s\n' "usage: benchmark/sweep_rate.sh [--rates A,B,C] [--count N] [--slots N] [--repeats N] [--outdir DIR] [--cpu-producer N] [--cpu-sender N] [--cpu-receiver N] [--cpu-consumer N] [--sndbuf BYTES] [--rcvbuf BYTES]"
+  printf '%s\n' "usage: benchmark/sweep_rate.sh [--rates A,B,C] [--count N] [--warmup N] [--warmup-seconds S] [--duration-seconds S] [--slots N] [--repeats N] [--outdir DIR] [--cpu-producer N] [--cpu-sender N] [--cpu-receiver N] [--cpu-consumer N] [--sndbuf BYTES] [--rcvbuf BYTES]"
 }
 
 require_value() {
@@ -22,6 +25,28 @@ require_value() {
     printf '%s\n' "missing value for $1" >&2
     exit 2
   fi
+}
+
+positive_integer() {
+  case "$2" in
+    ''|*[!0-9]*)
+      printf '%s\n' "$1 must be a positive integer" >&2
+      exit 2
+      ;;
+  esac
+  if (( $2 < 1 )); then
+    printf '%s\n' "$1 must be a positive integer" >&2
+    exit 2
+  fi
+}
+
+nonnegative_integer() {
+  case "$2" in
+    ''|*[!0-9]*)
+      printf '%s\n' "$1 must be a nonnegative integer" >&2
+      exit 2
+      ;;
+  esac
 }
 
 while [[ -n "${1+x}" ]]; do
@@ -34,6 +59,21 @@ while [[ -n "${1+x}" ]]; do
     --count)
       require_value "$@"
       count="$2"
+      shift 2
+      ;;
+    --warmup)
+      require_value "$@"
+      warmup="$2"
+      shift 2
+      ;;
+    --warmup-seconds)
+      require_value "$@"
+      warmup_seconds="$2"
+      shift 2
+      ;;
+    --duration-seconds)
+      require_value "$@"
+      duration_seconds="$2"
       shift 2
       ;;
     --slots)
@@ -93,16 +133,13 @@ while [[ -n "${1+x}" ]]; do
   esac
 done
 
-case "$repeats" in
-  ''|*[!0-9]*)
-    printf '%s\n' "--repeats must be a positive integer" >&2
-    exit 2
-    ;;
-esac
-
-if (( repeats < 1 )); then
-  printf '%s\n' "--repeats must be a positive integer" >&2
-  exit 2
+positive_integer "--repeats" "$repeats"
+positive_integer "--slots" "$slots"
+if [[ -n "$count" ]]; then
+  positive_integer "--count" "$count"
+fi
+if [[ -n "$warmup" ]]; then
+  nonnegative_integer "--warmup" "$warmup"
 fi
 
 IFS=',' read -r -a rate_values <<< "$rates"
@@ -112,16 +149,54 @@ if (( ${#rate_values[@]} == 0 )); then
 fi
 
 for rate in "${rate_values[@]}"; do
-  case "$rate" in
-    ''|*[!0-9]*)
-      printf '%s\n' "--rates must contain positive integer rates" >&2
-      exit 2
-      ;;
-  esac
+  positive_integer "--rates" "$rate"
 done
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
+
+if [[ -z "$outdir" ]]; then
+  outdir="$repo_root/benchmark/results/rate_sweep"
+fi
+
+compute_messages() {
+  python3 - "$1" "$2" <<'PY'
+import math
+import sys
+rate = int(sys.argv[1])
+seconds = float(sys.argv[2])
+if seconds < 0.0:
+    raise SystemExit(2)
+print(int(math.ceil(rate * seconds)))
+PY
+}
+
+python3 - "$warmup_seconds" "$duration_seconds" <<'PY'
+import sys
+for label, value in (("--warmup-seconds", sys.argv[1]), ("--duration-seconds", sys.argv[2])):
+    try:
+        number = float(value)
+    except ValueError:
+        raise SystemExit(f"{label} must be a nonnegative number")
+    if number < 0.0:
+        raise SystemExit(f"{label} must be a nonnegative number")
+PY
+
+plan_file="$(mktemp)"
+trap 'rm -f "$plan_file"' EXIT
+printf 'computed run plan:\n' >&2
+for rate in "${rate_values[@]}"; do
+  run_count="$count"
+  run_warmup="$warmup"
+  if [[ -z "$run_count" ]]; then
+    run_count="$(compute_messages "$rate" "$duration_seconds")"
+  fi
+  if [[ -z "$run_warmup" ]]; then
+    run_warmup="$(compute_messages "$rate" "$warmup_seconds")"
+  fi
+  printf '%s\t%s\t%s\n' "$rate" "$run_count" "$run_warmup" >>"$plan_file"
+  printf 'rate=%s count=%s warmup=%s\n' "$rate" "$run_count" "$run_warmup" >&2
+done
 
 if [[ -z "$outdir" ]]; then
   outdir="$repo_root/benchmark/results/rate_sweep"
@@ -136,14 +211,14 @@ failures_file="$root/.failures"
 : >"$failures_file"
 
 printf 'sweep root: %s\n' "$root" >&2
-printf 'rates: %s repeats: %s count: %s slots: %s\n' "$rates" "$repeats" "$count" "$slots" >&2
+printf 'rates: %s repeats: %s slots: %s warmup_seconds: %s duration_seconds: %s\n' "$rates" "$repeats" "$slots" "$warmup_seconds" "$duration_seconds" >&2
 
-for rate in "${rate_values[@]}"; do
+while IFS=$'\t' read -r rate run_count run_warmup; do
   for repeat in $(seq 1 "$repeats"); do
     run_dir="$root/rate_$rate/rep_$repeat"
     mkdir -p "$run_dir"
-    printf 'starting rate=%s repeat=%s outdir=%s\n' "$rate" "$repeat" "$run_dir" >&2
-    command=("$script_dir/run_once.sh" --rate "$rate" --count "$count" --slots "$slots" --outdir "$run_dir")
+    printf 'starting rate=%s repeat=%s count=%s warmup=%s outdir=%s\n' "$rate" "$repeat" "$run_count" "$run_warmup" "$run_dir" >&2
+    command=("$script_dir/run_once.sh" --rate "$rate" --count "$run_count" --warmup "$run_warmup" --slots "$slots" --outdir "$run_dir")
     if [[ -n "$cpu_producer" ]]; then
       command+=(--cpu-producer "$cpu_producer")
     fi
@@ -173,13 +248,16 @@ for rate in "${rate_values[@]}"; do
     fi
     sleep 2
   done
-done
+done <"$plan_file"
 
 finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 export SWEEP_ROOT="$root"
 export SWEEP_RATES="$rates"
 export SWEEP_COUNT="$count"
+export SWEEP_WARMUP="$warmup"
+export SWEEP_WARMUP_SECONDS="$warmup_seconds"
+export SWEEP_DURATION_SECONDS="$duration_seconds"
 export SWEEP_SLOTS="$slots"
 export SWEEP_REPEATS="$repeats"
 export SWEEP_OUTDIR="$outdir"
@@ -194,6 +272,7 @@ export SWEEP_SNDBUF="$sndbuf"
 export SWEEP_RCVBUF="$rcvbuf"
 export SWEEP_COMPLETED_FILE="$completed_file"
 export SWEEP_FAILURES_FILE="$failures_file"
+export SWEEP_PLAN_FILE="$plan_file"
 
 if ! python3 - "$root/sweep.json" <<'PY'
 import json
@@ -223,6 +302,12 @@ with open(os.environ["SWEEP_FAILURES_FILE"], "r", encoding="utf-8") as handle:
             }
         )
 
+computed = []
+with open(os.environ["SWEEP_PLAN_FILE"], "r", encoding="utf-8") as handle:
+    for line in handle:
+        rate, count, warmup = line.rstrip("\n").split("\t")
+        computed.append({"rate": int(rate), "count": int(count), "warmup": int(warmup)})
+
 data = {
     "root": os.environ["SWEEP_ROOT"],
     "timestamp": os.environ["SWEEP_TIMESTAMP"],
@@ -230,7 +315,10 @@ data = {
     "finished_at": os.environ["SWEEP_FINISHED_AT"],
     "parameters": {
         "rates": [int(rate) for rate in os.environ["SWEEP_RATES"].split(",")],
-        "count": int(os.environ["SWEEP_COUNT"]),
+        "count": optional_integer("SWEEP_COUNT"),
+        "warmup": optional_integer("SWEEP_WARMUP"),
+        "warmup_seconds": float(os.environ["SWEEP_WARMUP_SECONDS"]),
+        "duration_seconds": float(os.environ["SWEEP_DURATION_SECONDS"]),
         "slots": int(os.environ["SWEEP_SLOTS"]),
         "repeats": int(os.environ["SWEEP_REPEATS"]),
         "outdir": os.environ["SWEEP_OUTDIR"],
@@ -240,6 +328,7 @@ data = {
         "cpu_consumer": optional_integer("SWEEP_CPU_CONSUMER"),
         "sndbuf": optional_integer("SWEEP_SNDBUF"),
         "rcvbuf": optional_integer("SWEEP_RCVBUF"),
+        "computed_counts": computed,
     },
     "completed_run_dirs": completed,
     "failures": failures,
@@ -254,6 +343,7 @@ then
   exit 1
 fi
 
-rm -f "$completed_file" "$failures_file"
+rm -f "$completed_file" "$failures_file" "$plan_file"
+trap - EXIT
 printf 'wrote %s\n' "$root/sweep.json" >&2
 printf '%s\n' "$root"

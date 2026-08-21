@@ -4,3 +4,4 @@ logs/
 *.latencies
 benchmark/results/**
 reports/handoff/
+*.zip

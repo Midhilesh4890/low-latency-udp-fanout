@@ -1,5 +1,9 @@
 # Offline dedupe and FEC pass
 
+## Caveat
+
+Latency and drop figures in this report are correctness evidence only. They were measured on WSL2 loopback under saturation and are superseded by the EC2 two-host runs. Do not treat the WSL2 numbers here as performance results.
+
 These are loopback numbers on WSL2. The absolute latencies are not meaningful and must not be presented as benchmark results. This pass validates correctness and relative behavior: FEC recovery accounting moves when loss is injected, dedupe tolerates reordered arrivals, and disabled features do not emit FEC or injection activity.
 
 ## What ran

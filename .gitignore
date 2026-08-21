@@ -5,3 +5,11 @@ logs/
 benchmark/results/**
 reports/handoff/
 *.zip
+harness/bin/
+!benchmark/results/final/
+!benchmark/results/final/**
+!benchmark/results/final/**/*.csv
+!benchmark/results/final/**/*.json
+!benchmark/results/final/**/*.md
+benchmark/results/final/**/*.latencies
+benchmark/results/final/**/*.bin

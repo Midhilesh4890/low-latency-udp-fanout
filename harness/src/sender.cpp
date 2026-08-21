@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -35,7 +36,7 @@ struct Config {
   uint64_t idle_ms = 2000;
   int sndbuf = 4 * 1024 * 1024;
   uint32_t repeat = 1;
-  uint16_t fec_k = 8;
+  uint16_t fec_k = 0;
   uint64_t fec_timeout_us = 200;
   double test_drop_pct = 0.0;
   double test_reorder_pct = 0.0;
@@ -47,6 +48,30 @@ struct PendingDatagram {
   std::vector<uint8_t> bytes;
   uint64_t release_ns = 0;
 };
+
+
+struct Distribution {
+  uint64_t p50 = 0;
+  uint64_t p99 = 0;
+  uint64_t max = 0;
+};
+
+Distribution distribution(std::vector<uint64_t> values) {
+  Distribution result;
+  if (values.empty()) return result;
+  std::sort(values.begin(), values.end());
+  auto value_at = [&](double p) -> uint64_t {
+    size_t rank = static_cast<size_t>(p * static_cast<double>(values.size()));
+    if (static_cast<double>(rank) < p * static_cast<double>(values.size())) ++rank;
+    if (rank < 1) rank = 1;
+    if (rank > values.size()) rank = values.size();
+    return values[rank - 1];
+  };
+  result.p50 = value_at(0.50);
+  result.p99 = value_at(0.99);
+  result.max = values.back();
+  return result;
+}
 
 Destination parse_destination(const std::string& value) {
   const size_t pos = value.rfind(":");
@@ -204,26 +229,35 @@ int main(int argc, char** argv) {
   uint64_t packets = 0;
   uint64_t lapped_events = 0;
   uint64_t fec_parity_sent = 0;
-  uint64_t fec_gen_timeouts = 0;
+  uint64_t fec_closed_by_k = 0;
+  uint64_t fec_closed_by_timeout = 0;
+  uint64_t fec_closed_by_flush = 0;
+  uint64_t fec_data_bytes = 0;
+  uint64_t fec_parity_bytes = 0;
   uint64_t test_dropped = 0;
   uint64_t test_reordered = 0;
   const uint64_t idle_ns = cfg.idle_ms * 1000000ull;
   const uint64_t fec_timeout_ns = cfg.fec_timeout_us * 1000ull;
   uint64_t last_progress = util::now_ns();
   uint64_t fec_first_ns = 0;
+  uint64_t fec_last_arrival_ns = 0;
   uint32_t fec_gen_id = 0;
+  std::vector<uint64_t> fec_arrival_intervals;
 
   fec::Encoder encoder(cfg.fec_k == 0 ? 1 : cfg.fec_k);
   std::vector<PendingDatagram> pending;
   std::mt19937_64 rng(cfg.test_seed);
   std::uniform_real_distribution<double> dist(0.0, 100.0);
 
-  auto close_generation = [&](bool timeout) -> bool {
+  auto close_generation = [&](uint32_t reason) -> bool {
     if (cfg.fec_k == 0 || encoder.empty()) return true;
     fec::BuiltGeneration built = encoder.close(fec_gen_id);
     if (!emit_datagram(cfg, sockets, pending, rng, dist, built.parity.data(), static_cast<uint32_t>(built.parity.size()), packets, test_dropped, test_reordered)) return false;
     ++fec_parity_sent;
-    if (timeout) ++fec_gen_timeouts;
+    fec_parity_bytes += built.parity.size();
+    if (reason == 0) ++fec_closed_by_k;
+    else if (reason == 1) ++fec_closed_by_timeout;
+    else ++fec_closed_by_flush;
     ++fec_gen_id;
     fec_first_ns = 0;
     return true;
@@ -232,7 +266,7 @@ int main(int argc, char** argv) {
   uint8_t frame[shm::kFrameCap];
   while (cfg.count == 0 || sent < cfg.count) {
     if (cfg.fec_k != 0 && !encoder.empty() && util::now_ns() - fec_first_ns >= fec_timeout_ns) {
-      if (!close_generation(true)) {
+      if (!close_generation(1)) {
         close_sockets(sockets);
         return 1;
       }
@@ -243,7 +277,11 @@ int main(int argc, char** argv) {
     auto st = ring.read(read_index, frame, &len, &resume);
 
     if (st == shm::Ring::FrameStatus::kOk) {
+      const uint64_t fec_arrival_ns = util::now_ns();
+      if (fec_last_arrival_ns != 0) fec_arrival_intervals.push_back(fec_arrival_ns - fec_last_arrival_ns);
+      fec_last_arrival_ns = fec_arrival_ns;
       if (cfg.fec_k == 0) {
+        fec_data_bytes += len;
         if (!emit_datagram(cfg, sockets, pending, rng, dist, frame, len, packets, test_dropped, test_reordered)) {
           close_sockets(sockets);
           return 1;
@@ -256,12 +294,13 @@ int main(int argc, char** argv) {
           return 1;
         }
         std::vector<uint8_t> data = fec::data_datagram(fec_gen_id, index, cfg.fec_k, frame, static_cast<uint16_t>(len));
+        fec_data_bytes += data.size();
         if (!emit_datagram(cfg, sockets, pending, rng, dist, data.data(), static_cast<uint32_t>(data.size()), packets, test_dropped, test_reordered)) {
           close_sockets(sockets);
           return 1;
         }
         if (encoder.full()) {
-          if (!close_generation(false)) {
+          if (!close_generation(0)) {
             close_sockets(sockets);
             return 1;
           }
@@ -274,10 +313,6 @@ int main(int argc, char** argv) {
       ++lapped_events;
       read_index = resume;
     } else {
-      if (!close_generation(true)) {
-        close_sockets(sockets);
-        return 1;
-      }
       if (!flush_pending(cfg, sockets, pending, util::now_ns(), false, packets)) {
         close_sockets(sockets);
         return 1;
@@ -286,7 +321,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  if (!close_generation(false)) {
+  if (!close_generation(2)) {
     close_sockets(sockets);
     return 1;
   }
@@ -295,10 +330,16 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  fprintf(stderr, "sender: sent=%llu packets=%llu lapped=%llu fec_parity_sent=%llu fec_gen_timeouts=%llu test_dropped=%llu test_reordered=%llu\n",
+  const Distribution arrival_stats = distribution(fec_arrival_intervals);
+  const double fec_overhead_pct = fec_data_bytes == 0 ? 0.0 : static_cast<double>(fec_parity_bytes) * 100.0 / static_cast<double>(fec_data_bytes);
+  fprintf(stderr, "sender: sent=%llu packets=%llu lapped=%llu fec_parity_sent=%llu fec_closed_by_k=%llu fec_closed_by_timeout=%llu fec_closed_by_flush=%llu fec_data_bytes=%llu fec_parity_bytes=%llu fec_overhead_pct=%.6f fec_arrival_p50_ns=%llu fec_arrival_p99_ns=%llu fec_arrival_max_ns=%llu test_dropped=%llu test_reordered=%llu\n",
           static_cast<unsigned long long>(sent), static_cast<unsigned long long>(packets), static_cast<unsigned long long>(lapped_events),
-          static_cast<unsigned long long>(fec_parity_sent), static_cast<unsigned long long>(fec_gen_timeouts),
-          static_cast<unsigned long long>(test_dropped), static_cast<unsigned long long>(test_reordered));
+          static_cast<unsigned long long>(fec_parity_sent), static_cast<unsigned long long>(fec_closed_by_k),
+          static_cast<unsigned long long>(fec_closed_by_timeout), static_cast<unsigned long long>(fec_closed_by_flush),
+          static_cast<unsigned long long>(fec_data_bytes), static_cast<unsigned long long>(fec_parity_bytes), fec_overhead_pct,
+          static_cast<unsigned long long>(arrival_stats.p50), static_cast<unsigned long long>(arrival_stats.p99),
+          static_cast<unsigned long long>(arrival_stats.max), static_cast<unsigned long long>(test_dropped),
+          static_cast<unsigned long long>(test_reordered));
   close_sockets(sockets);
   return 0;
 }

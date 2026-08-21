@@ -1,0 +1,3 @@
+receiver: harness/bin/receiver --out-shm /fix_raw_fec0_100k_rerun_out --slots 65536 --port 9411 --idle-ms 10000
+producer: harness/bin/producer --shm /fix_raw_fec0_100k_rerun_in --slots 65536 --count 20000 --rate 100000 --type mixed
+sender: harness/bin/sender --in-shm /fix_raw_fec0_100k_rerun_in --slots 65536 --count 20000 --host 127.0.0.1 --port 9411 --fec-k 0

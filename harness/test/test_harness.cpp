@@ -244,6 +244,27 @@ static bool contains_frame(const std::vector<std::vector<uint8_t>>& published, c
   return std::find(published.begin(), published.end(), frame) != published.end();
 }
 
+
+static void test_fec_disabled_raw_stream() {
+  std::vector<std::vector<uint8_t>> frames;
+  frames.push_back(make_trade(1, 0));
+  frames.push_back(make_trade(2, 1));
+  fec::Decoder decoder(64);
+  std::vector<std::vector<uint8_t>> published;
+  uint64_t parity_frames = 0;
+  for (const auto& frame : frames) {
+    assert(decoder.receive(frame.data(), static_cast<uint32_t>(frame.size()), 100, [&](const uint8_t* data, uint32_t len) {
+      published.push_back(std::vector<uint8_t>(data, data + len));
+      return true;
+    }));
+  }
+  assert(parity_frames == 0);
+  assert(published == frames);
+  assert(decoder.counters().parity_received == 0);
+  assert(decoder.counters().recovered == 0);
+  printf("test_fec_disabled_raw_stream OK\n");
+}
+
 static void test_fec_single_drop_each_index() {
   const uint16_t k = 8;
   for (uint16_t drop = 0; drop < k; ++drop) {
@@ -331,6 +352,7 @@ int main() {
   test_dedupe_duplicate();
   test_dedupe_gap_lost_once();
   test_dedupe_base_advances_full_window();
+  test_fec_disabled_raw_stream();
   test_fec_single_drop_each_index();
   test_fec_two_drops_unrecoverable();
   test_fec_drop_parity();

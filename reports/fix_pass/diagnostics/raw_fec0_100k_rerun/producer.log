@@ -1,0 +1,2 @@
+producer: shm=/fix_raw_fec0_100k_rerun_in slots=65536 count=20000 rate=100000 type=mixed
+producer: sent 20000 messages

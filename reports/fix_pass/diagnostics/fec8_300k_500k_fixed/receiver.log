@@ -1,0 +1,2 @@
+receiver: out_shm=/fix_fec8_300k_500k_fixed_out slots=65536 bind=0.0.0.0:9423 count=0 rcvbuf=4194304 batch_size=32 dedupe=true dedupe_window=65536 fec_gens=64
+receiver: received=105603 published=93824 rejected=0 accepted=93824 duplicates=1 too_old=0 lost_confirmed=381075 window_slides=16861 max_reorder_depth=65535 old_duplicates=0 fec_parity_received=11784 fec_recovered=6 fec_unrecoverable_gens=30 fec_recovery_p50_ns=2893 fec_recovery_p99_ns=97663 fec_recovery_max_ns=97663

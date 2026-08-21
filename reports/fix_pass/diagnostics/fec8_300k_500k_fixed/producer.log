@@ -1,0 +1,2 @@
+producer: shm=/fix_fec8_300k_500k_fixed_in slots=65536 count=500000 rate=300000 type=mixed
+producer: sent 500000 messages

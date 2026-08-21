@@ -1,0 +1,2 @@
+sender: in_shm=/fix_raw_fec0_100k_rerun_in slots=65536 targets=1 count=20000 from_edge=false sndbuf=4194304 repeat=1 fec_k=0 fec_timeout_us=200 test_drop_pct=0.000000 test_reorder_pct=0.000000 test_reorder_delay_us=0 test_seed=1 orderbook_size=576 worst_datagram=594
+sender: sent=20000 packets=20000 lapped=0 fec_parity_sent=0 fec_closed_by_k=0 fec_closed_by_timeout=0 fec_closed_by_flush=0 fec_data_bytes=6400128 fec_parity_bytes=0 fec_overhead_pct=0.000000 fec_arrival_p50_ns=9962 fec_arrival_p99_ns=25707 fec_arrival_max_ns=1421504 test_dropped=0 test_reordered=0

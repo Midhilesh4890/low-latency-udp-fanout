@@ -1,0 +1,2 @@
+receiver: out_shm=/codex_batch_before_out_1 slots=65536 bind=0.0.0.0:19101 count=700000 rcvbuf=4194304 batch_size=32 dedupe=true dedupe_window=65536 fec_gens=64
+receiver: received=351481 published=351024 rejected=0 accepted=351024 duplicates=457 too_old=0 lost_confirmed=348976 window_slides=1109 max_reorder_depth=65535 old_duplicates=0 fec_parity_received=0 fec_recovered=0 fec_unrecoverable_gens=0 fec_recovery_p50_ns=0 fec_recovery_p99_ns=0 fec_recovery_max_ns=0

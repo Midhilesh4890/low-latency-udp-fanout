@@ -1,0 +1,2 @@
+producer: shm=/codex_byte_same slots=1024 count=128 rate=1000 type=mixed
+producer: sent 128 messages

@@ -1,0 +1,68 @@
+.gitignore final-results scheme
+
+Problem found
+The previous rule benchmark/results/** ignored the entire tree before later final-result negations could reliably re-include nested files.
+
+Scheme applied
+- Ignore immediate children of benchmark/results with benchmark/results/*.
+- Re-include benchmark/results/final/.
+- Ignore immediate children under benchmark/results/final/ by default.
+- Re-include directories under benchmark/results/final/**/.
+- Re-include final CSV, JSON, and MD files.
+- Keep .latencies and .bin ignored under benchmark/results/final/.
+- Keep global *.csv ignored for root and raw CSV files, with final-result CSVs overridden by the later negation.
+
+Current .gitignore
+data/
+logs/
+*.csv
+*.latencies
+benchmark/results/*
+!benchmark/results/final/
+benchmark/results/final/*
+!benchmark/results/final/**/
+!benchmark/results/final/**/*.csv
+!benchmark/results/final/**/*.json
+!benchmark/results/final/**/*.md
+benchmark/results/final/**/*.latencies
+benchmark/results/final/**/*.bin
+reports/handoff/
+*.zip
+harness/bin/
+
+Empirical probe output
+git status --porcelain --ignored -- benchmark/results/final/gitignore_probe
+?? benchmark/results/final/gitignore_probe/
+!! benchmark/results/final/gitignore_probe/probe.bin
+!! benchmark/results/final/gitignore_probe/probe.latencies
+
+git check-ignore -v probe files
+file=benchmark/results/final/gitignore_probe/probe.csv
+.gitignore:9:!benchmark/results/final/**/*.csv	benchmark/results/final/gitignore_probe/probe.csv
+exit_code=0
+file=benchmark/results/final/gitignore_probe/probe.json
+.gitignore:10:!benchmark/results/final/**/*.json	benchmark/results/final/gitignore_probe/probe.json
+exit_code=0
+file=benchmark/results/final/gitignore_probe/probe.md
+.gitignore:11:!benchmark/results/final/**/*.md	benchmark/results/final/gitignore_probe/probe.md
+exit_code=0
+file=benchmark/results/final/gitignore_probe/probe.latencies
+.gitignore:12:benchmark/results/final/**/*.latencies	benchmark/results/final/gitignore_probe/probe.latencies
+exit_code=0
+file=benchmark/results/final/gitignore_probe/probe.bin
+.gitignore:13:benchmark/results/final/**/*.bin	benchmark/results/final/gitignore_probe/probe.bin
+exit_code=0
+
+git status --porcelain --ignored -uall -- benchmark/results/final/gitignore_probe
+?? benchmark/results/final/gitignore_probe/probe.csv
+?? benchmark/results/final/gitignore_probe/probe.json
+?? benchmark/results/final/gitignore_probe/probe.md
+!! benchmark/results/final/gitignore_probe/probe.bin
+!! benchmark/results/final/gitignore_probe/probe.latencies
+
+Tracked byte-size impact today
+benchmark/results/final/ contains no trackable files today.
+total_bytes=0
+
+Conclusion
+The notebook-readable final artifacts CSV/JSON/MD under benchmark/results/final/ are visible to git. Raw .latencies and .bin files remain ignored. No existing benchmark/results result directory was modified except for temporary probe files under benchmark/results/final/gitignore_probe, which were removed.

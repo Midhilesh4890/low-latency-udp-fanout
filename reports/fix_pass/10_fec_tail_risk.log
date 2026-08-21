@@ -1,0 +1,27 @@
+FEC recovery latency and tail-risk audit
+
+Existing recovery-latency coverage
+The receiver prints fec_recovery_p50_ns, fec_recovery_p99_ns, and fec_recovery_max_ns. It does not print p99.9. Therefore p99.9 is ABSENT in existing logs.
+
+Current measured FEC recovery data from this pass
+100000 msg/s, k=8, no injected drop:
+fec_recovered=0, fec_recovery_p50_ns=0, fec_recovery_p99_ns=0, fec_recovery_max_ns=0
+300000 msg/s, k=8, no injected drop but WSL-saturated:
+fec_recovered=7, fec_recovery_p50_ns=3819, fec_recovery_p99_ns=22106, fec_recovery_max_ns=22106, p99.9=ABSENT
+
+Prior offline_de examples available in reports/offline_de/04_impairment.log and reports/offline_de/05_final_report.md
+p99.9 recovery latency: ABSENT.
+Any p99.9 end-to-end latency by FEC recovery status: ABSENT.
+Added latency of the --fec-timeout-us path as a direct measurement: ABSENT.
+
+Ordering behavior
+Data frames are published immediately when received by the FEC decoder. Recovered frames are published when parity plus exactly k-1 data frames are available. There is no sequence-order holdback in receiver.cpp; publish_frame is called by decoder.receive and then dedupe decides whether the sequence is still admissible. A late recovered frame can be rejected as too_old if the dedupe base already advanced past it.
+
+Timeout risk
+When a generation fills to k, parity is emitted on close_by_k and the timeout is not on the critical path. When a partial generation does not reach k, parity is emitted only after --fec-timeout-us expires from the first frame in that generation, or at final flush. Therefore a loss inside a partial generation can add up to the configured timeout before recovery is even possible, plus scheduling, send, receive, and decode time. The current default is 200 us.
+
+What needs to be measured before final claims
+Add fec_recovery_p999_ns or export raw recovery latencies.
+Run controlled EC2 two-host tests with injected single loss in partial generations and full generations separately.
+Report recovery latency distributions split by close reason: closed_by_k, closed_by_timeout, closed_by_flush.
+Report whether recovered frames were published, rejected too_old, or superseded by later window advancement.

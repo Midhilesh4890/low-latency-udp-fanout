@@ -1,0 +1,2 @@
+producer: shm=/codex_default_no_fec_in slots=4096 count=10000 rate=50000 type=mixed
+producer: sent 10000 messages

@@ -1,0 +1,1 @@
+sender_rc=0 producer_rc=0 receiver_rc=0 elapsed_ns=6199732580 throughput_msg_s=112908

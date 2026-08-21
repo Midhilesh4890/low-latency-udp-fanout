@@ -1,0 +1,57 @@
+command: grep -RInE "(^[[:space:]]*//|/[*]|[*]/|\"\"\")" harness/include/dedupe_window.h harness/include/fec.h harness/src/sender.cpp harness/src/receiver.cpp harness/test/test_harness.cpp reports/offline_de/run_offline_matrix.sh
+command: make -C harness
+make: Entering directory '/home/midhilesh/projects/task/harness'
+make: Nothing to be done for 'all'.
+make: Leaving directory '/home/midhilesh/projects/task/harness'
+command: make -C harness test
+make: Entering directory '/home/midhilesh/projects/task/harness'
+./bin/test_harness
+test_metrics_basic OK
+test_metrics_drops OK
+test_ring_roundtrip OK
+test_ring_lapping OK
+test_frame_roundtrip_preserves_header OK
+test_dedupe_in_order OK
+test_dedupe_swapped_adjacent OK
+test_dedupe_delayed_w_minus_one OK
+test_dedupe_delayed_w_plus_one_too_old OK
+test_dedupe_duplicate OK
+test_dedupe_gap_lost_once OK
+test_dedupe_base_advances_full_window OK
+test_fec_single_drop_each_index OK
+test_fec_two_drops_unrecoverable OK
+test_fec_drop_parity OK
+test_fec_partial_generation_recovers OK
+test_fec_out_of_order_recovers OK
+ALL TESTS PASSED
+make: Leaving directory '/home/midhilesh/projects/task/harness'
+command: for f in reports/offline_de/00_manifest.log reports/offline_de/01_metrics_audit.log reports/offline_de/02_dedupe.log reports/offline_de/03_fec.log reports/offline_de/04_impairment.log reports/offline_de/05_final_report.md; do test -s "$f" && echo "$f non_empty" || echo "$f MISSING_OR_EMPTY"; done
+reports/offline_de/00_manifest.log non_empty
+reports/offline_de/01_metrics_audit.log non_empty
+reports/offline_de/02_dedupe.log non_empty
+reports/offline_de/03_fec.log non_empty
+reports/offline_de/04_impairment.log non_empty
+reports/offline_de/05_final_report.md non_empty
+command: git log --oneline origin/main..main
+command: git reflog show origin/main
+5dc3d3c refs/remotes/origin/main@{0}: update by push
+ebce760 refs/remotes/origin/main@{1}: update by push
+command: git status --short benchmark/results reports/offline_de harness/include/dedupe_window.h harness/include/fec.h harness/src/sender.cpp harness/src/receiver.cpp harness/test/test_harness.cpp .gitignore
+ M .gitignore
+ M harness/src/receiver.cpp
+ M harness/src/sender.cpp
+ M harness/test/test_harness.cpp
+?? harness/include/dedupe_window.h
+?? harness/include/fec.h
+?? reports/offline_de/
+command: cat reports/offline_de/tc_netem_check.log
+command: tc qdisc add dev lo root netem loss 0.1%
+RTNETLINK answers: Operation not permitted
+exit_code: 2
+command: tc -s qdisc show dev lo
+qdisc noqueue 0: root refcnt 2 
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+NOT_RUN netem unavailable without elevated network privileges or kernel support
+command: tc qdisc show dev lo
+qdisc noqueue 0: root refcnt 2 

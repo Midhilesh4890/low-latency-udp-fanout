@@ -1,0 +1,128 @@
+caveat: these are loopback numbers on WSL2. The absolute latencies are not meaningful and must not be presented as results. What is validated here is correctness and relative behavior: FEC recovers what it claims to recover, dedupe tolerates reordering, and disabled features do not emit FEC or injection activity.
+
+matrix_command: bash /home/midhilesh/projects/task/reports/offline_de/run_offline_matrix.sh
+result_root: /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z
+duration: 5s per requested run
+rates: 100000, 300000
+loss_pct: 0, 0.1, 1
+fec: off, k=8
+repeats: 3
+not_run: rate_100000/loss_0/fec_off/rep_1 latency_bin_missing_or_empty; sender exit code 1
+not_run: rate_300000/loss_1/fec_k8/rep_1 latency_bin_missing_or_empty; consumer exit code 1
+
+tc_netem_check:
+command: tc qdisc add dev lo root netem loss 0.1%
+RTNETLINK answers: Operation not permitted
+exit_code: 2
+command: tc -s qdisc show dev lo
+qdisc noqueue 0: root refcnt 2 
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+NOT_RUN netem unavailable without elevated network privileges or kernel support
+command: tc qdisc show dev lo
+qdisc noqueue 0: root refcnt 2 
+
+
+complete_summarize_py_output:
+row_type                       config repeat receiver   rate   count warmup skip_warmup wall_clock_received_rate achieved_rate received expected dropped drop_rate consumer_lapped sender_lapped       p50       p99      p99_9        max ramp_ratio ramp_slope_ns saturation_triggers                 flags freeze_count
+     run    rate_100000/loss_0/fec_k8      1 rx_local 100000  500000      0           0                    88095       88096.6   440475   500000   59525   0.11905               0             0   1335904  47528275   70624523   74963319  0.0386382      -44.1878                               LOSS|FREEZE             
+     run    rate_100000/loss_0/fec_k8      2 rx_local 100000  500000      0           0                  89364.6       89117.4   446823   500000   53177  0.106354               0          4437   1467621 471554411  485013673  899820604    2978.65       -38.543                ramp SATURATED|LOSS|FREEZE             
+     run    rate_100000/loss_0/fec_k8      3 rx_local 100000  500000      0           0                    82438       82439.1   412190   500000   87810   0.17562               0             0    783000  16567206   24801386   28861170    0.21776      -8.35534                                      LOSS             
+     run   rate_100000/loss_0/fec_off      2 rx_local 100000  500000      0           0                  99519.4       99521.6   497597   500000    2403  0.004806               0             0   1839947 129352543  146091780  149067434    15.6232       15.4866                ramp      SATURATED|FREEZE             
+     run   rate_100000/loss_0/fec_off      3 rx_local 100000  500000      0           0                  98320.8       98322.6   491604   500000    8396  0.016792               0             0    320148  18517788   74198566   79509374  0.0314177      -3.08207                                      LOSS             
+     run  rate_100000/loss_0p1/fec_k8      1 rx_local 100000  500000      0           0                  97767.4       97768.9   488837   500000   11163  0.022326               0             0    107204  28017757   31522353   32077793    16.6816       7.24158                ramp SATURATED|LOSS|FREEZE             
+     run  rate_100000/loss_0p1/fec_k8      2 rx_local 100000  500000      0           0                  78197.8         78199   390989   500000  109011  0.218022               0             0   1408985  20247090   27535254   28663425   0.473153      -0.12944                rate        SATURATED|LOSS             
+     run  rate_100000/loss_0p1/fec_k8      3 rx_local 100000  500000      0           0                  92493.6       92494.7   462468   500000   37532  0.075064               0             0     98951  10356686   26932531   27067794    13.9267        2.9984                ramp        SATURATED|LOSS             
+     run rate_100000/loss_0p1/fec_off      1 rx_local 100000  500000      0           0                  92546.8       92536.7   462734   500000   37266  0.074532               0             0    943022  15973849   35031227   35087607    3.25126       1.23678                ramp        SATURATED|LOSS             
+     run rate_100000/loss_0p1/fec_off      2 rx_local 100000  500000      0           0                    96341       96314.8   481705   500000   18295   0.03659               0             0    249592  11185021   15017347   18366969    155.022       5.74145                ramp SATURATED|LOSS|FREEZE             
+     run rate_100000/loss_0p1/fec_off      3 rx_local 100000  500000      0           0                  80194.2       80263.3   400971   500000   99029  0.198058               0          6538    718450 226610756  245960920  922230442    401.951       221.497                ramp SATURATED|LOSS|FREEZE             
+     run    rate_100000/loss_1/fec_k8      1 rx_local 100000  500000      0           0                  80818.8         80821   404094   500000   95906  0.191812               0             0    772800  11710425   15018237   16392102   0.502139       -2.8434                                      LOSS             
+     run    rate_100000/loss_1/fec_k8      2 rx_local 100000  500000      0           0                  69194.8       69196.7   345974   500000  154026  0.308052               0          7555   2665288 502363757  947070448  947568412    130.248       959.047           ramp|rate SATURATED|LOSS|FREEZE             
+     run    rate_100000/loss_1/fec_k8      3 rx_local 100000  500000      0           0                    75900       75929.9   379500   500000  120500     0.241               0             0   2708180  34809004   36418570   47941712   0.680953      -3.04759                rate        SATURATED|LOSS             
+     run   rate_100000/loss_1/fec_off      1 rx_local 100000  500000      0           0                  74833.6       74834.8   374168   500000  125832  0.251664               0          7249   3139988 222555998  231294385  929879745   0.065876       220.397                rate SATURATED|LOSS|FREEZE             
+     run   rate_100000/loss_1/fec_off      2 rx_local 100000  500000      0           0                  85755.2       85756.5   428776   500000   71224  0.142448               0             0    493789  13469754   24587151   27766264   0.234546      -2.93045                                      LOSS             
+     run   rate_100000/loss_1/fec_off      3 rx_local 100000  500000      0           0                    81034       81035.1   405170   500000   94830   0.18966               0             0   1613981  17501080   28745741   29159151   0.697836      -1.54988                                      LOSS             
+     run    rate_300000/loss_0/fec_k8      1 rx_local 300000 1500000      0           0                   152087        152105   760435  1500000  739565  0.493043               0         86449 218432088 328045496  345325052 4302983955    11.7501       201.096           ramp|rate        SATURATED|LOSS             
+     run    rate_300000/loss_0/fec_k8      2 rx_local 300000 1500000      0           0                   215910        215935  1079552  1500000  420448  0.280299               0         92690 218431534 308035018  326036721 4295127720    1.63919       65.6188                rate        SATURATED|LOSS             
+     run    rate_300000/loss_0/fec_k8      3 rx_local 300000 1500000      0           0                   173656        173627   868278  1500000  631722  0.421148               0        154627 218429807 302499626 1143203973 4296222464    3.59068       141.233           ramp|rate        SATURATED|LOSS             
+     run   rate_300000/loss_0/fec_off      1 rx_local 300000 1500000      0           0                   224626        224651  1123131  1500000  376869  0.251246               1             0  19667993 202977721  241709925  245297514    22.7039       84.9933           ramp|rate SATURATED|LOSS|FREEZE             
+     run   rate_300000/loss_0/fec_off      2 rx_local 300000 1500000      0           0                   181833        181996   909165  1500000  590835   0.39389               0         11712 194439780 232171914  246123436  249057902    1.87521       135.494                rate        SATURATED|LOSS             
+     run   rate_300000/loss_0/fec_off      3 rx_local 300000 1500000      0           0                   249860        249888  1249298  1500000  250702  0.167135               0          1060 193344082 297146962  336289603  338512489     28.312       150.582                ramp        SATURATED|LOSS             
+     run  rate_300000/loss_0p1/fec_k8      1 rx_local 300000 1500000      0           0                   210199        210223  1050996  1500000  449004  0.299336               0         96259 218433335 291880800  401826941 4301706524    4.00003       111.749           ramp|rate        SATURATED|LOSS             
+     run  rate_300000/loss_0p1/fec_k8      2 rx_local 300000 1500000      0           0                    69970       69885.7   349850  1500000 1150150  0.766767               0        137289 218510924 512835062  525191080 4297159855    3.64127       450.694           ramp|rate        SATURATED|LOSS             
+     run  rate_300000/loss_0p1/fec_k8      3 rx_local 300000 1500000      0           0                  91170.8       81410.7   455854  1500000 1044146  0.696097               0        121282 219881174 680772559 1169939050 4311712928    3.87557       316.551           ramp|rate        SATURATED|LOSS             
+     run rate_300000/loss_0p1/fec_off      1 rx_local 300000 1500000      0           0                   273872        273907  1369358  1500000  130642 0.0870947               0             0   8280368  99158972  138407447  142842977    5.46735       27.2412                ramp        SATURATED|LOSS             
+     run rate_300000/loss_0p1/fec_off      2 rx_local 300000 1500000      0           0                   175574        175496   877871  1500000  622129  0.414753               0          9639 212269404 265849046  271588622  281129547    9.17292       127.869           ramp|rate        SATURATED|LOSS             
+     run rate_300000/loss_0p1/fec_off      3 rx_local 300000 1500000      0           0                   231039        230986  1155196  1500000  344804  0.229869               0         68760   9722894 202674996 1104494378 1107585707    24.2499       92.5289           ramp|rate        SATURATED|LOSS             
+     run    rate_300000/loss_1/fec_k8      2 rx_local 300000 1500000      0           0                   239293        239321  1196464  1500000  303536  0.202357               0         45142 218024006 504609611  582696557  594313164    2.34567        132.03           ramp|rate        SATURATED|LOSS             
+     run    rate_300000/loss_1/fec_k8      3 rx_local 300000 1500000      0           0                   135309        135311   676544  1500000  823456  0.548971               0         45324 216669556 799331023  874260400 4302448725    33.4546        509.54           ramp|rate        SATURATED|LOSS             
+     run   rate_300000/loss_1/fec_off      1 rx_local 300000 1500000      0           0                   229100        229126  1145499  1500000  354501  0.236334               0          6565 214657488 258242930  287776077  291532722     2.9504       100.535           ramp|rate        SATURATED|LOSS             
+     run   rate_300000/loss_1/fec_off      2 rx_local 300000 1500000      0           0                   270200        270231  1350998  1500000  149002 0.0993347               0             0  96089819 225181004  230168846  240350696     4.8547       112.876                ramp        SATURATED|LOSS             
+     run   rate_300000/loss_1/fec_off      3 rx_local 300000 1500000      0           0                   206114        206138  1030572  1500000  469428  0.312952               1         68560  35825830 238973045  255795400  952617764 1.9645e-05      -170.903                rate SATURATED|LOSS|FREEZE             
+     run            reorder_probe/new      1 rx_local 300000 1500000      0           0                   227747        227773  1138734  1500000  361266  0.240844               0          9346 213231422 237434121  266157356  269840120   0.909314       9.98074                rate        SATURATED|LOSS             
+     run            reorder_probe/old      1 rx_local 300000 1500000      0           0                   104236        104237   521178  1500000  978822  0.652548               0          4493 215680186 227484003  230370551  300176830    1.71616       90.9827                rate        SATURATED|LOSS             
+
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_100000/loss_0/fec_k8; no aggregate row emitted
+WARNING: repeat sequence is not contiguous under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_100000/loss_0/fec_off
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_100000/loss_0p1/fec_k8; no aggregate row emitted
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_100000/loss_0p1/fec_off; no aggregate row emitted
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_100000/loss_1/fec_k8; no aggregate row emitted
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_100000/loss_1/fec_off; no aggregate row emitted
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_300000/loss_0/fec_k8; no aggregate row emitted
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_300000/loss_0/fec_off; no aggregate row emitted
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_300000/loss_0p1/fec_k8; no aggregate row emitted
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_300000/loss_0p1/fec_off; no aggregate row emitted
+WARNING: repeat sequence is not contiguous under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_300000/loss_1/fec_k8
+WARNING: repeat parameters differ under /home/midhilesh/projects/task/benchmark/results/offline_de/20260821T195522Z/rate_300000/loss_1/fec_off; no aggregate row emitted
+
+
+pivot_tables:
+pivot p99/p99.9/drop_rate medians by rate loss fec
+rate,loss,fec,runs,p99_median,p99_9_median,drop_rate_median
+100000,0,k8,3,47528275,70624523,0.119050
+100000,0,off,2,73935166,110145173,0.010799
+100000,0.1,k8,3,20247090,27535254,0.075064
+100000,0.1,off,3,15973849,35031227,0.074532
+100000,1,k8,3,34809004,36418570,0.241000
+100000,1,off,3,17501080,28745741,0.189660
+300000,0,k8,3,308035018,345325052,0.421148
+300000,0,off,3,232171914,246123436,0.251246
+300000,0.1,k8,3,512835062,525191080,0.696097
+300000,0.1,off,3,202674996,271588622,0.229869
+300000,1,k8,2,651970317,728478478,0.375664
+300000,1,off,3,238973045,255795400,0.236334
+
+fec recovery medians by rate loss
+rate,loss,runs,fec_recovered_median,unrecoverable_median,recovery_p50_ns_median,recovery_p99_ns_median,recovery_max_ns_median
+100000,0,3,26,55,0,38780,38780
+100000,0.1,3,484,51,2724,250756,657895
+100000,1,3,3592,194,21319,268225,13413703
+300000,0,3,21,149,3511,23230,23230
+300000,0.1,3,474,276,23145,165326,10869142
+300000,1,3,10551,478,22867,134261,11436802
+
+reorder probe
+old: drop_rate=0.652548 p99=227484002.87 p99_9=230370551.46600014 receiver: received=857746 published=521178 rejected=0 accepted=521178 duplicates=336568 too_old=0 lost_confirmed=0 window_slides=0 max_reorder_depth=0 old_duplicates=336568 fec_parity_received=0 fec_recovered=0 fec_unrecoverable_gens=0 fec_recovery_p50_ns=0 fec_recovery_p99_ns=0 fec_recovery_max_ns=0
+new: drop_rate=0.240844 p99=237434121.31999975 p99_9=266157355.81300074 receiver: received=1138914 published=1138734 rejected=0 accepted=1138734 duplicates=143 too_old=37 lost_confirmed=360324 window_slides=47102 max_reorder_depth=65535 old_duplicates=0 fec_parity_received=0 fec_recovered=0 fec_unrecoverable_gens=0 fec_recovery_p50_ns=0 fec_recovery_p99_ns=0 fec_recovery_max_ns=0
+
+
+compatibility_smoke:
+commands:
+receiver: harness/bin/receiver --out-shm /offline_de_compat_out --slots 65536 --port 9399 --idle-ms 2000 --dedupe-disable
+consumer: harness/bin/consumer --shm /offline_de_compat_out --slots 65536 --count 0 --idle-ms 2000 --csv benchmark/results/offline_de/20260821T195522Z/compat_disabled/rep_1/rx_local/latency.bin
+producer: harness/bin/producer --shm /offline_de_compat_in --slots 65536 --count 20000 --rate 100000 --type mixed
+sender: harness/bin/sender --in-shm /offline_de_compat_in --slots 65536 --count 20000 --host 127.0.0.1 --port 9399 --fec-k 0
+
+exit_codes:
+receiver=0
+consumer=0
+producer=0
+sender=0
+
+sender_log_tail:
+sender: in_shm=/offline_de_compat_in slots=65536 targets=1 count=20000 from_edge=false sndbuf=4194304 repeat=1 fec_k=0 fec_timeout_us=200 test_drop_pct=0.000000 test_reorder_pct=0.000000 test_reorder_delay_us=0 test_seed=1 orderbook_size=576 worst_datagram=594
+sender: sent=20000 packets=20000 lapped=0 fec_parity_sent=0 fec_gen_timeouts=0 test_dropped=0 test_reordered=0
+receiver_log_tail:
+receiver: out_shm=/offline_de_compat_out slots=65536 bind=0.0.0.0:9399 count=0 rcvbuf=4194304 batch_size=32 dedupe=false dedupe_window=65536 fec_gens=64
+receiver: received=20000 published=20000 rejected=0 accepted=20000 duplicates=0 too_old=0 lost_confirmed=0 window_slides=0 max_reorder_depth=0 old_duplicates=0 fec_parity_received=0 fec_recovered=0 fec_unrecoverable_gens=0 fec_recovery_p50_ns=0 fec_recovery_p99_ns=0 fec_recovery_max_ns=0
+byte_identical_before_binary_comparison: NOT_RUN no pre-change binaries or captured pre-change latency files existed in this workspace after the task was started

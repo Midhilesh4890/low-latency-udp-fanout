@@ -224,7 +224,7 @@ static fec::BuiltGeneration build_generation(uint16_t k, uint32_t gen_id, std::v
     frames.push_back(make_trade(i + 1, i % 7));
     assert(encoder.add(frames.back().data(), static_cast<uint16_t>(frames.back().size())));
   }
-  return encoder.close(gen_id);
+  return encoder.close(gen_id, 0);
 }
 
 static std::vector<std::vector<uint8_t>> decode_datagrams(const std::vector<std::vector<uint8_t>>& datagrams, fec::Decoder& decoder) {

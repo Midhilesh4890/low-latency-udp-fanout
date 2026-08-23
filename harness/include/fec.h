@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <type_traits>
 #include <vector>
 
 #include "message.h"
@@ -21,10 +22,11 @@ struct Envelope {
   uint16_t k;
   uint16_t parity_count;
   uint16_t protected_len;
+  uint8_t close_reason;
 };
 #pragma pack(pop)
 
-static_assert(sizeof(Envelope) == 16, "fec envelope must be 16 bytes");
+static_assert(sizeof(Envelope) == 17, "fec envelope must be 17 bytes");
 static_assert(sizeof(Envelope) + sizeof(uint16_t) + msg::kMaxFrame <= 1500, "fec datagram must fit mtu");
 
 inline void put_u16(std::vector<uint8_t>& out, uint16_t value) {
@@ -45,7 +47,7 @@ inline std::vector<uint8_t> protected_frame(const uint8_t* frame, uint16_t len, 
 
 inline std::vector<uint8_t> data_datagram(uint32_t gen_id, uint16_t index, uint16_t k, const uint8_t* frame, uint16_t len) {
   std::vector<uint8_t> out(sizeof(Envelope) + len);
-  Envelope header{kMagic, gen_id, index, k, 0, len};
+  Envelope header{kMagic, gen_id, index, k, 0, len, 0};
   std::memcpy(out.data(), &header, sizeof(header));
   std::memcpy(out.data() + sizeof(header), frame, len);
   return out;
@@ -71,7 +73,7 @@ class Encoder {
   uint16_t size() const { return static_cast<uint16_t>(frames_.size()); }
   bool full() const { return frames_.size() == k_; }
 
-  BuiltGeneration close(uint32_t gen_id) {
+  BuiltGeneration close(uint32_t gen_id, uint8_t close_reason) {
     const uint16_t actual_k = static_cast<uint16_t>(frames_.size());
     std::vector<uint8_t> parity(static_cast<size_t>(max_len_) + sizeof(uint16_t), 0);
     BuiltGeneration built;
@@ -81,7 +83,7 @@ class Encoder {
       for (size_t j = 0; j < parity.size(); ++j) parity[j] ^= protected_data[j];
     }
     built.parity.resize(sizeof(Envelope) + parity.size());
-    Envelope header{kMagic, gen_id, actual_k, actual_k, 1, static_cast<uint16_t>(parity.size())};
+    Envelope header{kMagic, gen_id, actual_k, actual_k, 1, static_cast<uint16_t>(parity.size()), close_reason};
     std::memcpy(built.parity.data(), &header, sizeof(header));
     std::memcpy(built.parity.data() + sizeof(header), parity.data(), parity.size());
     frames_.clear();
@@ -99,12 +101,23 @@ struct Counters {
   uint64_t parity_received = 0;
   uint64_t recovered = 0;
   uint64_t unrecoverable_gens = 0;
+  uint64_t recovered_by_k = 0;
+  uint64_t recovered_by_timeout = 0;
+  uint64_t recovered_by_flush = 0;
 };
 
 struct RecoveryStats {
   uint64_t p50 = 0;
   uint64_t p99 = 0;
+  uint64_t p999 = 0;
+  uint64_t p9999 = 0;
   uint64_t max = 0;
+};
+
+struct SplitRecoveryStats {
+  RecoveryStats by_k;
+  RecoveryStats by_timeout;
+  RecoveryStats by_flush;
 };
 
 class Decoder {
@@ -113,10 +126,10 @@ class Decoder {
 
   template <class Publish>
   bool receive(const uint8_t* data, uint32_t len, uint64_t now_ns, Publish publish) {
-    if (len < sizeof(Envelope)) return publish(data, len);
+    if (len < sizeof(Envelope)) return call_publish(publish, data, len, false, 0);
     Envelope envelope{};
     std::memcpy(&envelope, data, sizeof(envelope));
-    if (envelope.magic != kMagic) return publish(data, len);
+    if (envelope.magic != kMagic) return call_publish(publish, data, len, false, 0);
     const uint8_t* payload = data + sizeof(Envelope);
     const uint32_t payload_len = len - sizeof(Envelope);
     if (envelope.parity_count == 0) {
@@ -128,7 +141,7 @@ class Decoder {
       gen.first_ns = gen.first_ns == 0 ? now_ns : gen.first_ns;
       gen.data[envelope.index] = protected_frame(payload, envelope.protected_len, envelope.protected_len);
       gen.received[envelope.index] = true;
-      if (!publish(payload, payload_len)) return false;
+      if (!call_publish(publish, payload, payload_len, false, gen.close_reason)) return false;
       try_recover(gen, now_ns, publish);
       return true;
     }
@@ -137,6 +150,7 @@ class Decoder {
     ensure(gen, envelope.k);
     gen.seen_any = true;
     gen.first_ns = gen.first_ns == 0 ? now_ns : gen.first_ns;
+    gen.close_reason = envelope.close_reason;
     gen.parity.assign(payload, payload + payload_len);
     gen.parity_received = true;
     try_recover(gen, now_ns, publish);
@@ -150,17 +164,31 @@ class Decoder {
   const Counters& counters() const { return counters_; }
 
   RecoveryStats recovery_stats() const {
+    return recovery_stats_for(recovery_latencies_);
+  }
+
+  SplitRecoveryStats split_recovery_stats() const {
+    return SplitRecoveryStats{recovery_stats_for(recovery_by_k_), recovery_stats_for(recovery_by_timeout_), recovery_stats_for(recovery_by_flush_)};
+  }
+
+  const std::vector<uint64_t>& recovery_latencies() const {
+    return recovery_latencies_;
+  }
+
+ private:
+  static RecoveryStats recovery_stats_for(const std::vector<uint64_t>& source) {
     RecoveryStats stats;
-    if (recovery_latencies_.empty()) return stats;
-    std::vector<uint64_t> values = recovery_latencies_;
+    if (source.empty()) return stats;
+    std::vector<uint64_t> values = source;
     std::sort(values.begin(), values.end());
     stats.p50 = percentile(values, 0.50);
     stats.p99 = percentile(values, 0.99);
+    stats.p999 = percentile(values, 0.999);
+    stats.p9999 = percentile(values, 0.9999);
     stats.max = values.back();
     return stats;
   }
 
- private:
   struct Generation {
     bool active = false;
     bool seen_any = false;
@@ -169,11 +197,23 @@ class Decoder {
     bool unrecoverable_counted = false;
     uint32_t gen_id = 0;
     uint16_t k = 0;
+    uint8_t close_reason = 0;
     uint64_t first_ns = 0;
     std::vector<std::vector<uint8_t>> data;
     std::vector<uint8_t> parity;
     std::vector<uint8_t> received;
   };
+
+  template <class Publish>
+  static bool call_publish(Publish& publish, const uint8_t* data, uint32_t len, bool recovered, uint8_t close_reason) {
+    if constexpr (std::is_invocable_r_v<bool, Publish, const uint8_t*, uint32_t, bool, uint8_t>) {
+      return publish(data, len, recovered, close_reason);
+    } else if constexpr (std::is_invocable_r_v<bool, Publish, const uint8_t*, uint32_t, bool>) {
+      return publish(data, len, recovered);
+    } else {
+      return publish(data, len);
+    }
+  }
 
   Generation& slot(uint32_t gen_id, uint16_t k, uint64_t now_ns) {
     Generation& gen = slots_[gen_id % gens_];
@@ -214,11 +254,18 @@ class Decoder {
     if (recovered.size() < sizeof(uint16_t)) return;
     const uint16_t len = get_u16(recovered.data());
     if (len > shm::kFrameCap || static_cast<size_t>(len) + sizeof(uint16_t) > recovered.size()) return;
-    publish(recovered.data() + sizeof(uint16_t), len);
+    call_publish(publish, recovered.data() + sizeof(uint16_t), len, true, gen.close_reason);
     gen.received[missing_index] = true;
     gen.recovered = true;
     ++counters_.recovered;
-    recovery_latencies_.push_back(now_ns >= gen.first_ns ? now_ns - gen.first_ns : 0);
+    if (gen.close_reason == 0) ++counters_.recovered_by_k;
+    else if (gen.close_reason == 1) ++counters_.recovered_by_timeout;
+    else ++counters_.recovered_by_flush;
+    const uint64_t latency = now_ns >= gen.first_ns ? now_ns - gen.first_ns : 0;
+    recovery_latencies_.push_back(latency);
+    if (gen.close_reason == 0) recovery_by_k_.push_back(latency);
+    else if (gen.close_reason == 1) recovery_by_timeout_.push_back(latency);
+    else recovery_by_flush_.push_back(latency);
   }
 
   void finalize(Generation& gen) {
@@ -245,6 +292,9 @@ class Decoder {
   std::vector<Generation> slots_;
   Counters counters_;
   std::vector<uint64_t> recovery_latencies_;
+  std::vector<uint64_t> recovery_by_k_;
+  std::vector<uint64_t> recovery_by_timeout_;
+  std::vector<uint64_t> recovery_by_flush_;
 };
 
 }

@@ -20,6 +20,7 @@ struct Counters {
   uint64_t lost_confirmed = 0;
   uint64_t window_slides = 0;
   uint64_t max_reorder_depth = 0;
+  uint64_t receiver_seq_jump_raw = 0;
 };
 
 class Window {
@@ -32,6 +33,10 @@ class Window {
     if (!initialized_) {
       initialized_ = true;
       base_seq_ = seq;
+    }
+    if (seq >= base_seq_) {
+      const uint64_t raw_jump = seq - base_seq_;
+      if (raw_jump > counters_.receiver_seq_jump_raw) counters_.receiver_seq_jump_raw = raw_jump;
     }
     if (seq < base_seq_) {
       ++counters_.too_old;

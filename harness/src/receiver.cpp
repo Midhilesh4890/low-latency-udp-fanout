@@ -33,6 +33,7 @@ struct Config {
   uint64_t dedupe_window = 65536;
   bool dedupe_enabled = true;
   uint32_t fec_gens = 64;
+  std::string fec_recovery_csv;
 };
 
 Config parse_args(int argc, char** argv) {
@@ -57,6 +58,7 @@ Config parse_args(int argc, char** argv) {
     else if (a == "--dedupe-window") c.dedupe_window = std::stoull(next());
     else if (a == "--dedupe-disable") c.dedupe_enabled = false;
     else if (a == "--fec-gens") c.fec_gens = static_cast<uint32_t>(std::stoul(next()));
+    else if (a == "--fec-recovery-csv") c.fec_recovery_csv = next();
     else {
       fprintf(stderr, "unknown arg: %s\n", a.c_str());
       std::exit(2);
@@ -123,6 +125,7 @@ int main(int argc, char** argv) {
   uint64_t old_duplicates = 0;
   uint64_t old_last_seq = 0;
   uint64_t rejected = 0;
+  uint64_t fec_late_recovered_too_old = 0;
   const uint64_t idle_ns = cfg.idle_ms * 1000000ull;
   uint64_t last_progress = util::now_ns();
 
@@ -140,7 +143,7 @@ int main(int argc, char** argv) {
     messages[i].msg_hdr.msg_iovlen = 1;
   }
 
-  auto publish_frame = [&](const uint8_t* frame, uint32_t len) -> bool {
+  auto publish_frame = [&](const uint8_t* frame, uint32_t len, bool recovered, uint8_t) -> bool {
     if (len < sizeof(msg::Header) || len > shm::kFrameCap) {
       ++rejected;
       return false;
@@ -157,6 +160,7 @@ int main(int argc, char** argv) {
       return true;
     }
     const dedupe::ObserveResult result = dedupe_window.observe(hdr->seq_id);
+    if (recovered && result == dedupe::ObserveResult::kTooOld) ++fec_late_recovered_too_old;
     if (result == dedupe::ObserveResult::kAccept || result == dedupe::ObserveResult::kAdvanced) {
       ring.publish(frame, len);
       ++published;
@@ -187,7 +191,18 @@ int main(int argc, char** argv) {
   const dedupe::Counters& dc = dedupe_window.counters();
   const fec::Counters& fc = decoder.counters();
   const fec::RecoveryStats rs = decoder.recovery_stats();
-  fprintf(stderr, "receiver: received=%llu published=%llu rejected=%llu accepted=%llu duplicates=%llu too_old=%llu lost_confirmed=%llu window_slides=%llu max_reorder_depth=%llu old_duplicates=%llu fec_parity_received=%llu fec_recovered=%llu fec_unrecoverable_gens=%llu fec_recovery_p50_ns=%llu fec_recovery_p99_ns=%llu fec_recovery_max_ns=%llu\n",
+  const fec::SplitRecoveryStats split_rs = decoder.split_recovery_stats();
+  if (!cfg.fec_recovery_csv.empty()) {
+    FILE* recovery_file = fopen(cfg.fec_recovery_csv.c_str(), "w");
+    if (recovery_file == nullptr) {
+      perror("fopen");
+      return 1;
+    }
+    fprintf(recovery_file, "recovery_latency_ns\n");
+    for (uint64_t value : decoder.recovery_latencies()) fprintf(recovery_file, "%llu\n", static_cast<unsigned long long>(value));
+    fclose(recovery_file);
+  }
+  fprintf(stderr, "receiver: received=%llu published=%llu rejected=%llu accepted=%llu duplicates=%llu too_old=%llu lost_confirmed=%llu window_slides=%llu max_reorder_depth=%llu receiver_seq_jump_raw=%llu old_duplicates=%llu fec_parity_received=%llu fec_recovered=%llu fec_late_recovered_too_old=%llu fec_unrecoverable_gens=%llu fec_recovered_by_k=%llu fec_recovered_by_timeout=%llu fec_recovered_by_flush=%llu fec_recovery_p50_ns=%llu fec_recovery_p99_ns=%llu fec_recovery_p999_ns=%llu fec_recovery_p9999_ns=%llu fec_recovery_max_ns=%llu fec_recovery_by_k_p50_ns=%llu fec_recovery_by_k_p99_ns=%llu fec_recovery_by_k_p999_ns=%llu fec_recovery_by_k_p9999_ns=%llu fec_recovery_by_k_max_ns=%llu fec_recovery_by_timeout_p50_ns=%llu fec_recovery_by_timeout_p99_ns=%llu fec_recovery_by_timeout_p999_ns=%llu fec_recovery_by_timeout_p9999_ns=%llu fec_recovery_by_timeout_max_ns=%llu fec_recovery_by_flush_p50_ns=%llu fec_recovery_by_flush_p99_ns=%llu fec_recovery_by_flush_p999_ns=%llu fec_recovery_by_flush_p9999_ns=%llu fec_recovery_by_flush_max_ns=%llu\n",
           static_cast<unsigned long long>(received), static_cast<unsigned long long>(published), static_cast<unsigned long long>(rejected),
           static_cast<unsigned long long>(cfg.dedupe_enabled ? dc.accepted : published),
           static_cast<unsigned long long>(cfg.dedupe_enabled ? dc.duplicates : old_duplicates),
@@ -195,10 +210,22 @@ int main(int argc, char** argv) {
           static_cast<unsigned long long>(cfg.dedupe_enabled ? dc.lost_confirmed : 0),
           static_cast<unsigned long long>(cfg.dedupe_enabled ? dc.window_slides : 0),
           static_cast<unsigned long long>(cfg.dedupe_enabled ? dc.max_reorder_depth : 0),
+          static_cast<unsigned long long>(cfg.dedupe_enabled ? dc.receiver_seq_jump_raw : 0),
           static_cast<unsigned long long>(old_duplicates),
           static_cast<unsigned long long>(fc.parity_received), static_cast<unsigned long long>(fc.recovered),
-          static_cast<unsigned long long>(fc.unrecoverable_gens), static_cast<unsigned long long>(rs.p50),
-          static_cast<unsigned long long>(rs.p99), static_cast<unsigned long long>(rs.max));
+          static_cast<unsigned long long>(fec_late_recovered_too_old), static_cast<unsigned long long>(fc.unrecoverable_gens),
+          static_cast<unsigned long long>(fc.recovered_by_k), static_cast<unsigned long long>(fc.recovered_by_timeout),
+          static_cast<unsigned long long>(fc.recovered_by_flush), static_cast<unsigned long long>(rs.p50),
+          static_cast<unsigned long long>(rs.p99), static_cast<unsigned long long>(rs.p999),
+          static_cast<unsigned long long>(rs.p9999), static_cast<unsigned long long>(rs.max),
+          static_cast<unsigned long long>(split_rs.by_k.p50), static_cast<unsigned long long>(split_rs.by_k.p99),
+          static_cast<unsigned long long>(split_rs.by_k.p999), static_cast<unsigned long long>(split_rs.by_k.p9999),
+          static_cast<unsigned long long>(split_rs.by_k.max), static_cast<unsigned long long>(split_rs.by_timeout.p50),
+          static_cast<unsigned long long>(split_rs.by_timeout.p99), static_cast<unsigned long long>(split_rs.by_timeout.p999),
+          static_cast<unsigned long long>(split_rs.by_timeout.p9999), static_cast<unsigned long long>(split_rs.by_timeout.max),
+          static_cast<unsigned long long>(split_rs.by_flush.p50), static_cast<unsigned long long>(split_rs.by_flush.p99),
+          static_cast<unsigned long long>(split_rs.by_flush.p999), static_cast<unsigned long long>(split_rs.by_flush.p9999),
+          static_cast<unsigned long long>(split_rs.by_flush.max));
   close(sock);
   seg.unlink();
   return 0;

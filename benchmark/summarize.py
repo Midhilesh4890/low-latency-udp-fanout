@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 import csv
 import json
@@ -63,6 +62,64 @@ def lapped_counts_for(log_dir):
     }
 
 
+def log_fields(path):
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return {}
+    fields = {}
+    for key, value in re.findall(r"([A-Za-z0-9_]+)=([-+0-9.]+)", text):
+        if "." in value:
+            try:
+                fields[key] = float(value)
+            except ValueError:
+                pass
+        else:
+            try:
+                fields[key] = int(value)
+            except ValueError:
+                pass
+    return fields
+
+
+def transport_fields_for(log_dir):
+    receiver = log_fields(log_dir / "receiver.log")
+    sender = log_fields(log_dir / "sender.log")
+    keys = (
+        "receiver_seq_jump_raw",
+        "fec_recovered",
+        "fec_late_recovered_too_old",
+        "fec_unrecoverable_gens",
+        "fec_recovered_by_k",
+        "fec_recovered_by_timeout",
+        "fec_recovered_by_flush",
+        "fec_recovery_p50_ns",
+        "fec_recovery_p99_ns",
+        "fec_recovery_p999_ns",
+        "fec_recovery_p9999_ns",
+        "fec_recovery_max_ns",
+        "fec_recovery_by_k_p50_ns",
+        "fec_recovery_by_k_p99_ns",
+        "fec_recovery_by_k_p999_ns",
+        "fec_recovery_by_k_p9999_ns",
+        "fec_recovery_by_k_max_ns",
+        "fec_recovery_by_timeout_p50_ns",
+        "fec_recovery_by_timeout_p99_ns",
+        "fec_recovery_by_timeout_p999_ns",
+        "fec_recovery_by_timeout_p9999_ns",
+        "fec_recovery_by_timeout_max_ns",
+        "fec_recovery_by_flush_p50_ns",
+        "fec_recovery_by_flush_p99_ns",
+        "fec_recovery_by_flush_p999_ns",
+        "fec_recovery_by_flush_p9999_ns",
+        "fec_recovery_by_flush_max_ns",
+    )
+    output = {key: receiver.get(key, "") for key in keys}
+    for key in ("fec_closed_by_k", "fec_closed_by_timeout", "fec_closed_by_flush", "fec_data_bytes", "fec_parity_bytes", "fec_overhead_pct", "test_dropped", "test_reordered"):
+        output[key] = sender.get(key, "")
+    return output
+
+
 def discover_latency_csvs(root):
     if not root.exists():
         fail(f"input root does not exist: {root}")
@@ -70,7 +127,7 @@ def discover_latency_csvs(root):
         if root.name != "latency.csv":
             fail(f"input file is not latency.csv: {root}")
         return [root]
-    return sorted(root.rglob("rx_*/latency.csv"))
+    return sorted(path / "latency.csv" for path in root.rglob("rx_*") if (path / "latency.csv").exists())
 
 
 def warmup_from(data):
@@ -251,6 +308,7 @@ def summarize_receiver(root, latency_csv, skip_warmup):
     data = read_run_json(run_dir / "run.json")
     parameters = data.get("parameters", {})
     lapped_counts = lapped_counts_for(latency_csv.parent)
+    transport_fields = transport_fields_for(latency_csv.parent)
     recorded_warmup = warmup_from(data)
     warmup = recorded_warmup if skip_warmup is None else int(skip_warmup)
     samples = read_samples(latency_csv, warmup)
@@ -345,6 +403,7 @@ def summarize_receiver(root, latency_csv, skip_warmup):
         "group_dir": run_dir.parent if repeat_number(run_dir) is not None else run_dir,
         "repeat_number": repeat_number(run_dir)
     }
+    row.update(transport_fields)
     if void:
         print(f"VOID: negative latency in {latency_csv}", file=sys.stderr)
     return row
@@ -436,7 +495,7 @@ def aggregate_rows(root, rows):
 
 
 def public_keys():
-    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "consumer_lapped", "sender_lapped", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
+    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "consumer_lapped", "sender_lapped", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "receiver_seq_jump_raw", "fec_recovered", "fec_late_recovered_too_old", "fec_closed_by_k", "fec_closed_by_timeout", "fec_closed_by_flush", "fec_data_bytes", "fec_parity_bytes", "fec_overhead_pct", "fec_recovery_p50_ns", "fec_recovery_p99_ns", "fec_recovery_p999_ns", "fec_recovery_p9999_ns", "fec_recovery_max_ns", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
 
 
 def public_row(row):
@@ -492,7 +551,7 @@ def main():
     root = args.root.resolve()
     latency_csvs = discover_latency_csvs(root)
     if not latency_csvs:
-        fail(f"no rx_*/latency.csv files found below {root}")
+        fail(f"no receiver latency files found below {root}")
     rows = []
     for latency_csv in latency_csvs:
         row = summarize_receiver(root, latency_csv, args.skip_warmup)

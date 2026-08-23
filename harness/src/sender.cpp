@@ -136,8 +136,7 @@ Config parse_args(int argc, char** argv) {
   }
   if (c.repeat == 0) c.repeat = 1;
   if (c.batch_size == 0) c.batch_size = 1;
-  if (c.batch_timeout_us == 0) c.batch_timeout_us = 1;
-  if (c.fec_timeout_us == 0) c.fec_timeout_us = 1;
+    if (c.fec_timeout_us == 0) c.fec_timeout_us = 1;
   if (c.destinations.empty()) c.destinations.push_back(Destination{c.host, c.port});
   return c;
 }
@@ -329,7 +328,7 @@ int main(int argc, char** argv) {
 
   auto close_generation = [&](uint32_t reason) -> bool {
     if (cfg.fec_k == 0 || encoder.empty()) return true;
-    fec::BuiltGeneration built = encoder.close(fec_gen_id);
+    fec::BuiltGeneration built = encoder.close(fec_gen_id, static_cast<uint8_t>(reason));
     if (!emit_datagram(cfg, sockets, batch, send_counters, pending, rng, dist, built.parity.data(), static_cast<uint32_t>(built.parity.size()), test_dropped, test_reordered)) return false;
     ++fec_parity_sent;
     fec_parity_bytes += built.parity.size();

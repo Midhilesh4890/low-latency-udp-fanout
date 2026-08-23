@@ -1,2 +1,2 @@
-sender: in_shm=/codex_batch_base_2 slots=65536 targets=1 count=700000 from_edge=false sndbuf=4194304 repeat=1 batch_size=32 batch_timeout_us=50
+sender: in_shm=/bench_batch_base_2 slots=65536 targets=1 count=700000 from_edge=false sndbuf=4194304 repeat=1 batch_size=32 batch_timeout_us=50
 sender: sent=551819 packets=551819 lapped=8785

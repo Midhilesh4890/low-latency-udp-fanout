@@ -38,11 +38,11 @@ NOT_RUN. Quota was 16.0 vCPUs, so the planned path after successful two-host pro
 
 NOT_RUN. No measurement-backed recommendation can be made.
 
-## Open items for Midhilesh to verify
+## Validation Notes
 
-1. AWS account restriction: reports/ec2_pass/01_provision.log contains the exact m7i.2xlarge rejection after the placement-group fix. The blocker appears to be an account or launch policy restriction to Free Tier eligible instance types, not the placement group creation path.
+1. AWS account restriction: reports/ec2_pass/01_provision.log contains the exact m7i.2xlarge rejection after the placement-group fix. The provisioning limit appears to be an account or launch policy restriction to Free Tier eligible instance types, not the placement group creation path.
 2. Dry-run discrepancy: the user reported m7i.2xlarge dry-run success into spectral-ec2-pass-cluster, but the real run-instances call still failed. Verify whether DryRun bypassed this account restriction or whether a different AWS profile, region, or request shape was used.
-3. EC2 compile risk: instrumentation changes from e21493f were not compiled on EC2 because no instance launched. First rerun step after account unblock should be make -C harness clean && make -C harness && make -C harness test on Ubuntu 24.04.
+3. EC2 compile risk: instrumentation changes from e21493f were not compiled on EC2 because no instance launched. First rerun step after account access permits the target instance type should be make -C harness clean && make -C harness && make -C harness test on Ubuntu 24.04.
 4. Clock placement group decision: no PHC evidence was collected. Rerun Part B before accepting any one-way latency number.
 5. Remote orchestration: benchmark/run_remote.sh and benchmark/sweep_rate.sh passed bash syntax checks but were not exercised against EC2 hosts.
 6. Resource cleanup: reports/ec2_pass/10_teardown.log shows all five required independent verification queries returning empty arrays.

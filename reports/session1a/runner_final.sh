@@ -3,7 +3,7 @@ REGION=us-east-1
 AZ=us-east-1a
 TYPE=m7i.2xlarge
 KEY=spectral-key
-KEY_PATH=/home/midhilesh/.ssh/spectral-key.pem
+KEY_PATH=~/.ssh/spectral-key.pem
 PREFIX=spectral-ec2-pass
 CLUSTER_PG=spectral-ec2-pass-cluster
 KNOWN=/tmp/session1a_final_known_hosts
@@ -80,7 +80,7 @@ ensure_common() {
   SUBNET="$(aws ec2 describe-subnets --region "$REGION" --filters Name=vpc-id,Values="$VPC" Name=availability-zone,Values="$AZ" --query 'Subnets[0].SubnetId' --output text)"
   CIDR="$(curl -fsS https://checkip.amazonaws.com | tr -d '\n')/32"
   SG="$(aws ec2 create-security-group --region "$REGION" --group-name "${PREFIX}-sg" --description "$PREFIX" --vpc-id "$VPC" --query GroupId --output text 2>/dev/null || aws ec2 describe-security-groups --region "$REGION" --filters Name=group-name,Values="${PREFIX}-sg" Name=vpc-id,Values="$VPC" --query 'SecurityGroups[0].GroupId' --output text)"
-  aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG" --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$CIDR,Description=operator}]" >>"$LOG_RUN" 2>&1 || true
+  aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG" --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$CIDR,Description=ssh-access}]" >>"$LOG_RUN" 2>&1 || true
   aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG" --ip-permissions "IpProtocol=udp,FromPort=0,ToPort=65535,UserIdGroupPairs=[{GroupId=$SG,Description=spectral-udp}]" >>"$LOG_RUN" 2>&1 || true
   aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$SG" --ip-permissions "IpProtocol=icmp,FromPort=-1,ToPort=-1,UserIdGroupPairs=[{GroupId=$SG,Description=spectral-icmp}]" >>"$LOG_RUN" 2>&1 || true
   aws ec2 describe-placement-groups --region "$REGION" --group-names "$CLUSTER_PG" >>"$LOG_RUN" 2>&1 || aws ec2 create-placement-group --region "$REGION" --group-name "$CLUSTER_PG" --strategy cluster >>"$LOG_RUN" 2>&1

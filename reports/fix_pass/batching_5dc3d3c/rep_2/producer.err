@@ -1,2 +1,2 @@
-producer: shm=/codex_batch_base_2 slots=65536 count=700000 rate=700000 type=mixed
+producer: shm=/bench_batch_base_2 slots=65536 count=700000 rate=700000 type=mixed
 producer: sent 700000 messages

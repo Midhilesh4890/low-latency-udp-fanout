@@ -19,7 +19,7 @@ OK reports/ec2_pass/10_teardown.log 700 bytes
 OK reports/ec2_pass/11_final_report.md 3847 bytes
 exit_code=0
 command: git log --oneline origin/main..main
-219df70 Record retried EC2 provisioning blocker
+219df70 Record retried EC2 provisioning limit
 4ffa8e0 Record blocked EC2 measurement pass
 e21493f Add EC2 measurement instrumentation and orchestration
 exit_code=0

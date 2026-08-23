@@ -1,4 +1,3 @@
-// Create / open a POSIX shared-memory segment and mmap it. RAII wrapper.
 #pragma once
 
 #include <fcntl.h>
@@ -15,8 +14,8 @@ namespace shm {
 
 class Segment {
  public:
-  // Create (producer) or open (reader) the named segment. On failure, prints to
-  // stderr and exits -- these are simple CLI tools.
+
+
   static Segment open(const std::string& name, size_t size, bool create) {
     int flags = create ? (O_CREAT | O_RDWR) : O_RDWR;
     int fd = shm_open(name.c_str(), flags, 0600);
@@ -64,4 +63,4 @@ class Segment {
   size_t size_ = 0;
 };
 
-}  // namespace shm
+}

@@ -83,15 +83,15 @@ Median p99, p99.9, and drop rate from valid run rows:
 
 The full `summarize.py` output is pasted in `04_impairment.log`.
 
-## Open items for Midhilesh to verify
+## Hardware Follow-Up Checks
 
 - `04_impairment.log:1`: Treat all WSL2 loopback latencies as correctness-only evidence, not performance evidence.
-- `04_impairment.log:13`: Decide whether to rerun the two NOT_RUN cases or leave them as missing data.
-- `04_impairment.log:21`: `tc netem` could not be applied without elevated network privileges; decide whether to rerun with privileges on a Linux host.
+- `04_impairment.log:13`: Two NOT_RUN cases remain missing data unless rerun.
+- `04_impairment.log:21`: `tc netem` could not be applied without elevated network privileges; a privileged Linux host is required for that check.
 - `04_impairment.log:167`: The compatibility smoke cannot prove byte-identical behavior against a pre-change binary because none was preserved.
-- `03_fec.log:5`: Confirm the fixed `--fec-k 8` default is the desired default for later AWS tests, since it increases bandwidth even at zero loss.
-- `04_impairment.log:120`: The FEC pivot shows worse loopback drop rates in several saturated cases; rerun on hardware before interpreting this as a transport result.
-- `04_impairment.log:143`: The new dedupe probe still has `too_old=37` and large `lost_confirmed` because the run saturated and the window slid; verify at lower saturation or on real hardware.
+- `03_fec.log:5`: The `--fec-k 8` default increases bandwidth even at zero loss and should be validated against hardware results.
+- `04_impairment.log:120`: The FEC pivot shows worse loopback drop rates in several saturated cases; hardware results are required before interpreting this as a transport result.
+- `04_impairment.log:143`: The dedupe probe still has `too_old=37` and large `lost_confirmed` because the run saturated and the window slid; lower saturation or real hardware is required to bound this behavior.
 
 ## What still needs real hardware
 

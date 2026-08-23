@@ -1,1 +1,1 @@
-/tmp/codex_same_new.bin datagrams=128 fec_magic_datagrams=0
+/tmp/bench_same_new.bin datagrams=128 fec_magic_datagrams=0

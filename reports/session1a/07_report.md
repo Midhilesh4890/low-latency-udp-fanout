@@ -38,15 +38,15 @@ Three PHC placement cases were tested on fresh EC2 `m7i.2xlarge` hosts in `us-ea
 | precision-time placement group | ip-172-31-5-254 | enp39s0 | 0 | 0 | on | 1,5,2,6,3,7 |
 | no placement group | ip-172-31-1-161 | enp39s0 | 0 | 0 | on | 1,5,2,6,3,7 |
 
-Conclusion: PHC was not exposed on these `m7i.2xlarge` instances, even in the precision-time placement group. I did not configure PHC/ptp4l because there was no PHC device to use.
+Conclusion: PHC was not exposed on these `m7i.2xlarge` instances, even in the precision-time placement group. PHC/ptp4l was not configured because there was no PHC device to use.
 
 Cross-host clock probe examples:
 
 - Final cross-host run before shared fallback: `samples=100000 rtt_min_ns=79028 rtt_p50_ns=583812 rtt_p99_ns=839282 rtt_p999_ns=941979 min_rtt_offset_ns=-52684`.
 - Path MTU sweep found `path_mtu_payload=8973`, `path_mtu=9001`.
-- Cross-host smoke produced all latency rows but was correctly flagged `CLOCK_INVALID` because `max_drift_ns=52684` exceeded 10% of raw p50 (`160826.5 ns`). Chrony tail bounds were also not tight enough, so I did not relabel it valid.
+- Cross-host smoke produced all latency rows but was correctly flagged `CLOCK_INVALID` because `max_drift_ns=52684` exceeded 10% of raw p50 (`160826.5 ns`). Chrony tail bounds were also not tight enough, so the result remained invalid.
 
-Because cross-host one-way latency could not honestly satisfy the existing clock-validity rule on these hosts, I completed the empirical smoke and Trap1 work with a same-EC2-host shared-clock fallback. That run is explicitly labeled `shared_clock` / `cluster_shared_host`.
+Because cross-host one-way latency did not satisfy the existing clock-validity rule on these hosts, the empirical smoke and Trap1 work used a same-EC2-host shared-clock fallback. That run is explicitly labeled `shared_clock` / `cluster_shared_host`.
 
 ## Final Shared-Clock Smoke
 
@@ -68,7 +68,7 @@ Run prefix: `benchmark/results/session1a_20260823T205242Z_shared_trap1_*`
 
 Observed result: disk and tmpfs are very close at p50/p99. The no-write run is also close by consumer-log metrics. The large p99.9/p99.99 spikes remain present even with no latency file writing, so Trap1 is not explained by disk CSV/bin output alone in this shared-clock fallback.
 
-## Blockers Fixed / Characterized
+## Fixes and Characterized Limits
 
 1. SMT disable/isolate siblings: live SMT disable did not take on these EC2 hosts; fallback sibling isolation works and preflight verifies it.
 2. PHC: no PHC was present in cluster, precision-time, or no-PG cases.

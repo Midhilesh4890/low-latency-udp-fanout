@@ -1,10 +1,3 @@
-// Consumer: reads events from the shared-memory broadcast ring, stamps a receive
-// timestamp, and computes delivery metrics (latency percentiles, drop rate) from
-// the per-message send timestamp and sequence id. Fixed measurement end of the
-// harness.
-//
-// Usage: consumer [--shm NAME] [--slots N] [--count N] [--from-edge]
-//                 [--csv FILE] [--idle-ms MS]
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -78,15 +71,15 @@ void print_report(const metrics::Report& r) {
   printf("  p99.99     : %llu\n", (unsigned long long)r.p9999);
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   Config cfg = parse_args(argc, argv);
 
   shm::Segment seg =
-      shm::Segment::open(cfg.shm_name, shm::region_size(cfg.slots), /*create=*/false);
+      shm::Segment::open(cfg.shm_name, shm::region_size(cfg.slots), false);
   shm::Ring ring;
-  ring.attach(seg.base(), cfg.slots, /*init=*/false);
+  ring.attach(seg.base(), cfg.slots, false);
 
   metrics::Accumulator acc(cfg.count ? cfg.count : 1u << 20);
 
@@ -124,9 +117,9 @@ int main(int argc, char** argv) {
       last_progress = recv_ts;
     } else if (st == shm::Ring::FrameStatus::kLapped) {
       ++lapped_events;
-      read_index = resume;  // skip the gap; drops show up as seq gaps in metrics
-    } else {  // kEmpty
-      if (util::now_ns() - last_progress > idle_ns) break;  // producer done
+      read_index = resume;
+    } else {
+      if (util::now_ns() - last_progress > idle_ns) break;
     }
   }
 

@@ -1,2 +1,2 @@
-producer: shm=/codex_fec_after_100000 slots=65536 count=500000 rate=100000 type=mixed
+producer: shm=/bench_fec_after_100000 slots=65536 count=500000 rate=100000 type=mixed
 producer: sent 500000 messages

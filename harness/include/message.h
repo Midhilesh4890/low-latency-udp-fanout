@@ -1,7 +1,3 @@
-// Wire messages for the fan-out harness. Every frame begins with a common
-// Header carrying the sequence id and send timestamp the consumer uses to
-// measure delivery; the rest of the frame describes a market-data event -- a
-// trade, a top-of-book (BBO) update, or a 5-level order book snapshot.
 #pragma once
 
 #include <cstdint>
@@ -19,13 +15,13 @@ enum class Type : uint16_t {
   OrderBook = 3,
 };
 
-// Common framing header at the start of every message.
+
 struct Header {
-  uint64_t seq_id;      // monotonic, starts at 1
-  uint64_t send_ts_ns;  // producer send timestamp, ns since epoch
-  uint16_t type;        // Type
+  uint64_t seq_id;
+  uint64_t send_ts_ns;
+  uint16_t type;
   uint16_t version;
-  uint32_t body_len;    // total message size in bytes
+  uint32_t body_len;
 };
 
 struct alignas(64) Trade {
@@ -45,7 +41,7 @@ struct alignas(64) Trade {
   int64_t price_ticks;
   int64_t quantity_lots;
   uint32_t tick_direction;
-  uint8_t aggressor_side;  // 0 = buy, 1 = sell
+  uint8_t aggressor_side;
   uint8_t is_block_trade;
   uint8_t is_rpi;
   uint8_t is_liquidation;
@@ -103,4 +99,4 @@ inline constexpr uint32_t kMaxFrame = sizeof(OrderBook);
 static_assert(sizeof(Trade) <= kMaxFrame, "kMaxFrame must fit every message");
 static_assert(sizeof(Bbo) <= kMaxFrame, "kMaxFrame must fit every message");
 
-}  // namespace msg
+}

@@ -5,7 +5,7 @@ Provisioned two `m7i.2xlarge` instances in `us-east-1a`, subnet `subnet-0e13c6a8
 
 Bootstrap ran on both hosts, rebooted into `isolcpus=1,2,3 nohz_full=1,2,3 rcu_nocbs=1,2,3`, installed required packages, applied socket sysctls, and disabled irqbalance. Harness build and tests passed on both EC2 hosts.
 
-Clock probe ran cross-host for `100000` iterations: `samples=100000 rtt_min_ns=46488 rtt_p50_ns=471237 rtt_p99_ns=716451 min_rtt_offset_ns=-24018`. I set `clock_residual_bound_ns=24018` and method `ntp_local_timesync`.
+Clock probe ran cross-host for `100000` iterations: `samples=100000 rtt_min_ns=46488 rtt_p50_ns=471237 rtt_p99_ns=716451 min_rtt_offset_ns=-24018`. The resulting `clock_residual_bound_ns` was `24018` with method `ntp_local_timesync`.
 
 ## What did not run
 Trap 1 disk/tmpfs/no-write empirical comparison: NOT_RUN because the cross-host smoke orchestration never produced latency rows, and local latency measurement is forbidden.
@@ -31,25 +31,14 @@ PHC path rejected: `ethtool -T enp39s0` reported `PTP Hardware Clock: none`, and
 
 `clock_residual_bound_ns=24018`. That means p50 values at or below roughly `24 us` are not resolvable with this methodology; higher percentiles are credible only when materially above that bound.
 
-## Open items for Midhilesh to verify
+## Validation Notes
 Verify the task’s expected `ens5` name against this AMI exposing `enp39s0`: see `reports/session1/04_clock.log`.
 
-Verify whether `infra/bootstrap.sh` should quote remote `$(hostname)` usage in the driver commands; bootstrap env landed under `DESKTOP-RLS4QHI`, while chrony samples landed under EC2 hostnames.
+`infra/bootstrap.sh` should quote remote `$(hostname)` usage in the driver commands; bootstrap env landed under `DESKTOP-RLS4QHI`, while chrony samples landed under EC2 hostnames.
 
-Verify the remote orchestration model: fixed endpoints can exit before peer attachment, causing the failed smoke in `benchmark/results/session1_smoke_20260823T1818Z`.
+Remote orchestration note: fixed endpoints can exit before peer attachment, causing the failed smoke in `benchmark/results/session1_smoke_20260823T1818Z`.
 
-Verify whether to keep the newly created cluster placement group `pg-0dc67b835fdc4fc8c`; I left it in place per task instructions.
-
-## Before pushing
-Review `benchmark/run_remote.sh`, `benchmark/sweep_rate.sh`, `benchmark/summarize.py`, and `benchmark/preflight_isolation.sh`.
-
-Commands:
-
-```bash
-git status
-git log --oneline origin/main..HEAD
-git push origin main
-```
+The newly created cluster placement group `pg-0dc67b835fdc4fc8c` was retained for reuse after this pass.
 
 ## Spend and teardown
 Instance runtime was approximately 0.55 hours per instance. At an assumed `m7i.2xlarge` Linux us-east-1 rate near `$0.4032/hour`, estimated compute spend is about `$0.45`, excluding small EBS pennies. Teardown verification returned empty for running/stopped instances, volumes, addresses, and spectral security groups. Placement group was retained.

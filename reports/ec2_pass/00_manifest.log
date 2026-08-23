@@ -14,7 +14,7 @@ reports/ec2_pass/07_fec_verdict.log	NOT_RUN FEC verdict reason.
 reports/ec2_pass/08_fanout.log	NOT_RUN fan-out reason and 16 vCPU fallback note.
 reports/ec2_pass/09_batch_tuning.log	NOT_RUN batch tuning reason.
 reports/ec2_pass/10_teardown.log	Exact cleanup verification with five required empty queries.
-reports/ec2_pass/11_final_report.md	Synthesis, blocker, open items, spend, and teardown confirmation.
+reports/ec2_pass/11_final_report.md	Synthesis, provisioning limit, validation notes, spend, and teardown confirmation.
 reports/ec2_pass/env/NOT_RUN/provision_failed.txt	Placeholder env evidence explaining why no host env dump exists.
 reports/ec2_pass/comment_grep.txt	No-comment grep output for modified/authored code files.
 reports/ec2_pass/acceptance_checks.log	Git, syntax, log, and teardown acceptance evidence.

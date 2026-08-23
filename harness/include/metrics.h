@@ -1,7 +1,3 @@
-// Latency + delivery metrics. The consumer feeds one observation per received
-// message (send->recv latency, sequence id); at report time we sort the
-// collected samples for exact percentiles and derive the drop rate from seq
-// gaps.
 #pragma once
 
 #include <algorithm>
@@ -12,7 +8,7 @@ namespace metrics {
 
 struct Report {
   uint64_t received = 0;
-  uint64_t expected = 0;   // last_seq - first_seq + 1
+  uint64_t expected = 0;
   uint64_t dropped = 0;
   double drop_rate = 0.0;
 
@@ -66,7 +62,7 @@ class Accumulator {
   }
 
  private:
-  // Nearest-rank percentile on a sorted vector, p in [0,1].
+
   static uint64_t percentile(const std::vector<uint64_t>& sorted, double p) {
     if (sorted.empty()) return 0;
     size_t n = sorted.size();
@@ -84,4 +80,4 @@ class Accumulator {
   std::vector<uint64_t> latencies_;
 };
 
-}  // namespace metrics
+}

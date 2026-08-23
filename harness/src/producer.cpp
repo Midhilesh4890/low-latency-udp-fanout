@@ -1,11 +1,3 @@
-// Producer: generates a stream of market-data events (trade, BBO, or order-book
-// snapshots), stamping each with a monotonic sequence id and a send timestamp,
-// and publishes them into a shared-memory broadcast ring for one or more
-// consumers. Fixed end of the benchmark harness -- a candidate replaces the
-// transport, not this.
-//
-// Usage: producer [--shm NAME] [--slots N] [--count N] [--rate MSGS_PER_SEC]
-//                 [--type trade|bbo|book|mixed]
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -78,7 +70,7 @@ void fill_header(msg::Header& h, uint64_t seq, msg::Type type, uint32_t body_len
   h.type = static_cast<uint16_t>(type);
   h.version = 1;
   h.body_len = body_len;
-  h.send_ts_ns = util::now_ns();  // stamp as late as possible before publish
+  h.send_ts_ns = util::now_ns();
 }
 
 uint32_t build_trade(void* buf, uint64_t seq) {
@@ -191,15 +183,15 @@ const char* kind_name(Kind k) {
   }
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   Config cfg = parse_args(argc, argv);
 
   shm::Segment seg =
-      shm::Segment::open(cfg.shm_name, shm::region_size(cfg.slots), /*create=*/true);
+      shm::Segment::open(cfg.shm_name, shm::region_size(cfg.slots), true);
   shm::Ring ring;
-  ring.attach(seg.base(), cfg.slots, /*init=*/true);
+  ring.attach(seg.base(), cfg.slots, true);
 
   alignas(64) uint8_t frame[shm::kFrameCap];
 

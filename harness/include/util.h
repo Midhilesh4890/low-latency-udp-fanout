@@ -12,4 +12,4 @@ inline uint64_t now_ns() {
           .count());
 }
 
-}  // namespace util
+}

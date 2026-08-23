@@ -1,14 +1,12 @@
 # Baseline: Shared-Memory Ring
 
-To understand what exactly is going on, I have ran below commands and checked it
+The baseline checks below compare shared-memory ring behavior at different slot counts.
 
-In the sametime, got curious to see if we have more slots, will the consumer lapped or not. When I checked with 65536 slots, there is no lapping and all messages are recieved by consumer 
-
-But yeah this may not always be true as we may not have the option of using more slots. It only shows that, in this local baseline test, the smaller ring was one cause of message drops under load.
+With 65536 slots, the local consumer did not lap the producer and all measured messages were received. This does not prove that a larger ring is always available or sufficient; it shows that, in this local baseline test, the smaller ring was one cause of message drops under load.
 
 ## Current Network Transport
 
-I added two binaries for the middle transport layer:
+Two binaries implement the middle transport layer:
 
 - `sender`: reads frames from the producer shared-memory ring and sends them over UDP.
 - `receiver`: receives UDP frames and publishes them into another shared-memory ring for the consumer.

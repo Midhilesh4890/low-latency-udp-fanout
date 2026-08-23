@@ -6,7 +6,7 @@ reports/offline_de/04_impairment.log purpose: impairment run summary, pivots, tc
 reports/offline_de/05_final_report.md purpose: final synthesis and hardware checklist
 reports/offline_de/run_offline_matrix.sh purpose: deterministic single-host impairment runner
 reports/offline_de/tc_netem_check.log purpose: tc netem availability and final qdisc state
-reports/offline_de/acceptance_checks.log purpose: acceptance checklist command output
+reports/offline_de/acceptance_checks.log purpose: validation command output
 harness/include/dedupe_window.h purpose: receiver reorder-tolerant dedupe window
 harness/include/fec.h purpose: XOR FEC envelope, encoder, decoder, and accounting
 harness/src/receiver.cpp purpose: receiver integration for dedupe, FEC decode, and counters

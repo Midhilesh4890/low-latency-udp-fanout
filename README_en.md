@@ -6,7 +6,6 @@ Hi! Welcome to the **Low-latency data transfer** challenge from the HFT fund Spe
 
 The key requirement: optimal latency not just on average, but at high quantiles and under load. The system has to hold latency down when the data flow is heavy and when there are many receivers.
 
-A Claude agent will be working on the same task alongside you. Its solution will appear as the competition goes on and will live in a public repository — you're welcome to use it as a baseline.
 
 **Prizes:**
 - 1st place – 6,000 USD gross
@@ -78,7 +77,7 @@ The main **differentiation** comes from the high percentiles (p99, p99.9, p99.99
 ## Rules of the game
 
 - **This is a networking problem.** You can and should use several machines (two laptops, a home network, your own or cloud servers) and a real network. The transport is your choice and part of the task (TCP, UDP, multicast, kernel bypass, and so on).
-- **Any tools are allowed.** Any languages, libraries, AI agents.
+- **Any tools are allowed.** Any languages, libraries, libraries.
 - **Reproducibility is mandatory.** The environment, the topology, how to run it, what hardware/network you measured on — all of that has to be recorded in your write-up.
 - **Deadline:** we accept solutions until 23:59 GMT+3 on 30 August 2026.
 - **Submission format:** described in [this document](how_to_submit_solution_en.md).

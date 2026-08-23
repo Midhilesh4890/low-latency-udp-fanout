@@ -1,0 +1,10 @@
+driver: ena
+version: 6.17.0-1019-aws
+firmware-version: 
+expansion-rom-version: 
+bus-info: 0000:27:00.0
+supports-statistics: yes
+supports-test: no
+supports-eeprom-access: no
+supports-register-dump: no
+supports-priv-flags: no

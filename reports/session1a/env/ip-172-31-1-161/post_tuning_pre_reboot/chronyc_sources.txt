@@ -1,0 +1,20 @@
+
+  .-- Source mode  '^' = server, '=' = peer, '#' = local clock.
+ / .- Source state '*' = current best, '+' = combined, '-' = not combined,
+| /             'x' = may be in error, '~' = too variable, '?' = unusable.
+||                                                 .- xxxx [ yyyy ] +/- zzzz
+||      Reachability register (octal) -.           |  xxxx = adjusted offset,
+||      Log2(Polling interval) --.      |          |  yyyy = measured offset,
+||                                \     |          |  zzzz = estimated error.
+||                                 |    |           \
+MS Name/IP address         Stratum Poll Reach LastRx Last sample               
+===============================================================================
+^* 169.254.169.123               1   4   377     1    -52us[  -56us] +/-  253us
+^- prod-ntp-3.ntp4.ps5.cano>     2   6    37    52  -1562us[-1544us] +/-   46ms
+^- prod-ntp-4.ntp4.ps5.cano>     2   6    37    50  -2280us[-2262us] +/-   45ms
+^- alphyn.canonical.com          2   6    37    50  +2371us[+2389us] +/-   29ms
+^- prod-ntp-5.ntp1.ps5.cano>     2   6    37    50  +2142us[+2160us] +/-   51ms
+^- ntp.shastacoe.net             2   6    37    51   -280us[ -262us] +/-   81ms
+^- dreamstation.systems          2   6    37    50  +2831us[+2849us] +/-   18ms
+^- ip-162-254-225-152.rev.o>     2   6    37    51  -8690us[-8672us] +/-   35ms
+^- kjsl-fmt2-net.fmt2.kjsl.>     2   6    37    50  +1086us[+1104us] +/-   32ms

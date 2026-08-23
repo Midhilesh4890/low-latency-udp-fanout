@@ -1,0 +1,4 @@
+case	instance	public	private	hostname	nic	ptp_count	hw_timestamp	smt	isolated
+cluster	i-0f329ac310588f72f	98.92.217.107	172.31.12.235	ip-172-31-12-235	enp39s0	0	0	on	1,5,2,6,3,7
+precision	i-037f304713f532b6e	54.157.96.244	172.31.5.254	ip-172-31-5-254	enp39s0	0	0	on	1,5,2,6,3,7
+none	i-0c8b3b0672af7b2c5	3.216.30.148	172.31.1.161	ip-172-31-1-161	enp39s0	0	0	on	1,5,2,6,3,7

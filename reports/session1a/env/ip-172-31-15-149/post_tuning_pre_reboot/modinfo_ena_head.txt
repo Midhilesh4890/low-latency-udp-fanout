@@ -1,0 +1,6 @@
+name:           ena
+filename:       (builtin)
+license:        GPL
+file:           drivers/net/ethernet/amazon/ena/ena
+description:    Elastic Network Adapter (ENA)
+author:         Amazon.com, Inc. or its affiliates

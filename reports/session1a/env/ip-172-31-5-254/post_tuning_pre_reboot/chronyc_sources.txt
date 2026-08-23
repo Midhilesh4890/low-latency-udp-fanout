@@ -1,0 +1,20 @@
+
+  .-- Source mode  '^' = server, '=' = peer, '#' = local clock.
+ / .- Source state '*' = current best, '+' = combined, '-' = not combined,
+| /             'x' = may be in error, '~' = too variable, '?' = unusable.
+||                                                 .- xxxx [ yyyy ] +/- zzzz
+||      Reachability register (octal) -.           |  xxxx = adjusted offset,
+||      Log2(Polling interval) --.      |          |  yyyy = measured offset,
+||                                \     |          |  zzzz = estimated error.
+||                                 |    |           \
+MS Name/IP address         Stratum Poll Reach LastRx Last sample               
+===============================================================================
+^* 169.254.169.123               1   4   177     2  -6265ns[  -56us] +/-   90us
+^- prod-ntp-4.ntp4.ps5.cano>     2   6    17    49  -1312us[-1299us] +/-   46ms
+^- prod-ntp-5.ntp1.ps5.cano>     2   6    17    50   -494us[ -486us] +/-   48ms
+^- prod-ntp-3.ntp1.ps5.cano>     2   6    17    49  +1789us[+1802us] +/-   49ms
+^- alphyn.canonical.com          2   6    17    49  +1294us[+1307us] +/-   28ms
+^- 67.210.96.32                  2   6    17    50  +5112us[+5125us] +/-  102ms
+^- 66.42.71.197.vultruserco>     3   6    17    51   +158us[ +166us] +/-   45ms
+^- connected.by.freedominte>     2   6    17    50  +2025us[+2038us] +/-   43ms
+^- 144.202.62.209.vultruser>     3   6    17    50  -1575us[-1567us] +/-   14ms

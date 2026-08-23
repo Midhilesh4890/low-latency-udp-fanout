@@ -1,0 +1,37 @@
++ aws sts get-caller-identity
+{
+    "UserId": "AIDAR6LDV5IENCRPAAA2B",
+    "Account": "133889911304",
+    "Arn": "arn:aws:iam::133889911304:user/aws-cleanup-script"
+}
++ aws service-quotas get-service-quota --region us-east-1 --service-code ec2 --quota-code L-1216C47A
+{
+    "Quota": {
+        "ServiceCode": "ec2",
+        "ServiceName": "Amazon Elastic Compute Cloud (Amazon EC2)",
+        "QuotaArn": "arn:aws:servicequotas:us-east-1:133889911304:ec2/L-1216C47A",
+        "QuotaCode": "L-1216C47A",
+        "QuotaName": "Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances",
+        "Value": 16.0,
+        "Unit": "None",
+        "Adjustable": true,
+        "GlobalQuota": false,
+        "UsageMetric": {
+            "MetricNamespace": "AWS/Usage",
+            "MetricName": "ResourceCount",
+            "MetricDimensions": {
+                "Class": "Standard/OnDemand",
+                "Resource": "vCPU",
+                "Service": "EC2",
+                "Type": "Resource"
+            },
+            "MetricStatisticRecommendation": "Maximum"
+        },
+        "QuotaAppliedAtLevel": "ACCOUNT",
+        "Description": "Maximum number of vCPUs assigned to the Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances."
+    }
+}
++ aws ssm get-parameter --region us-east-1 --name /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id --query Parameter.Value --output text
+ami-052355af2a014bd2c
++ aws ec2 describe-vpcs --region us-east-1 --filters Name=is-default,Values=true --query 'Vpcs[0].VpcId' --output text
+vpc-0a7ba3916c416733f

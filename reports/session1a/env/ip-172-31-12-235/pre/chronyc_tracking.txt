@@ -1,0 +1,13 @@
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 19:07:38 2026
+System time     : 0.000013024 seconds slow of NTP time
+Last offset     : -0.000025667 seconds
+RMS offset      : 0.000029492 seconds
+Frequency       : 5.684 ppm slow
+Residual freq   : +0.001 ppm
+Skew            : 1.943 ppm
+Root delay      : 0.000220318 seconds
+Root dispersion : 0.000081895 seconds
+Update interval : 32.1 seconds
+Leap status     : Normal

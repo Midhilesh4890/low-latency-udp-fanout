@@ -1,0 +1,1 @@
+BOOT_IMAGE=/vmlinuz-6.17.0-1019-aws root=PARTUUID=b6646204-dd62-48b5-921b-feb019fb9c2c ro isolcpus=1,5,2,6,3,7 nohz_full=1,5,2,6,3,7 rcu_nocbs=1,5,2,6,3,7 console=tty1 console=ttyS0 nvme_core.io_timeout=4294967295 panic=-1

@@ -1,0 +1,20 @@
+
+  .-- Source mode  '^' = server, '=' = peer, '#' = local clock.
+ / .- Source state '*' = current best, '+' = combined, '-' = not combined,
+| /             'x' = may be in error, '~' = too variable, '?' = unusable.
+||                                                 .- xxxx [ yyyy ] +/- zzzz
+||      Reachability register (octal) -.           |  xxxx = adjusted offset,
+||      Log2(Polling interval) --.      |          |  yyyy = measured offset,
+||                                \     |          |  zzzz = estimated error.
+||                                 |    |           \
+MS Name/IP address         Stratum Poll Reach LastRx Last sample               
+===============================================================================
+^* 169.254.169.123               1   4   377    12    +21us[  +35us] +/-  145us
+^- prod-ntp-5.ntp1.ps5.cano>     2   6    37    44  -2366us[-2346us] +/-   45ms
+^- prod-ntp-4.ntp4.ps5.cano>     2   6    37    45  +1770us[+1790us] +/-   49ms
+^- prod-ntp-3.ntp1.ps5.cano>     2   6    37    46  -1496us[-1476us] +/-   45ms
+^- alphyn.canonical.com          2   6    37    43  +1653us[+1674us] +/-   28ms
+^- 44.190.5.123                  2   6    37    45   +542us[ +562us] +/-   32ms
+^- li1150-42.members.linode>     2   6    37    45   +674us[ +694us] +/-   42ms
+^- 172-233-189-68.ip.linode>     2   6    37    45  -1339us[-1319us] +/-   80ms
+^- proxymymail.com               2   6    37    45   -606us[ -586us] +/-   14ms

@@ -1,0 +1,1680 @@
+2026-08-23T20:16:50Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:41 2026
+System time     : 0.000029674 seconds fast of NTP time
+Last offset     : +0.000037320 seconds
+RMS offset      : 0.000037320 seconds
+Frequency       : 6.500 ppm fast
+Residual freq   : +0.191 ppm
+Skew            : 5.132 ppm
+Root delay      : 0.000344757 seconds
+Root dispersion : 0.000153995 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:16:51Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:41 2026
+System time     : 0.000028928 seconds fast of NTP time
+Last offset     : +0.000037320 seconds
+RMS offset      : 0.000037320 seconds
+Frequency       : 6.500 ppm fast
+Residual freq   : +0.191 ppm
+Skew            : 5.132 ppm
+Root delay      : 0.000344757 seconds
+Root dispersion : 0.000160350 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:16:52Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:41 2026
+System time     : 0.000028183 seconds fast of NTP time
+Last offset     : +0.000037320 seconds
+RMS offset      : 0.000037320 seconds
+Frequency       : 6.500 ppm fast
+Residual freq   : +0.191 ppm
+Skew            : 5.132 ppm
+Root delay      : 0.000344757 seconds
+Root dispersion : 0.000166695 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:16:53Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:41 2026
+System time     : 0.000027438 seconds fast of NTP time
+Last offset     : +0.000037320 seconds
+RMS offset      : 0.000037320 seconds
+Frequency       : 6.500 ppm fast
+Residual freq   : +0.191 ppm
+Skew            : 5.132 ppm
+Root delay      : 0.000344757 seconds
+Root dispersion : 0.000173040 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:16:54Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:41 2026
+System time     : 0.000026693 seconds fast of NTP time
+Last offset     : +0.000037320 seconds
+RMS offset      : 0.000037320 seconds
+Frequency       : 6.500 ppm fast
+Residual freq   : +0.191 ppm
+Skew            : 5.132 ppm
+Root delay      : 0.000344757 seconds
+Root dispersion : 0.000179384 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:16:55Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:41 2026
+System time     : 0.000025949 seconds fast of NTP time
+Last offset     : +0.000037320 seconds
+RMS offset      : 0.000037320 seconds
+Frequency       : 6.500 ppm fast
+Residual freq   : +0.191 ppm
+Skew            : 5.132 ppm
+Root delay      : 0.000344757 seconds
+Root dispersion : 0.000185730 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:16:56Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:41 2026
+System time     : 0.000025204 seconds fast of NTP time
+Last offset     : +0.000037320 seconds
+RMS offset      : 0.000037320 seconds
+Frequency       : 6.500 ppm fast
+Residual freq   : +0.191 ppm
+Skew            : 5.132 ppm
+Root delay      : 0.000344757 seconds
+Root dispersion : 0.000192075 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:16:57Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:41 2026
+System time     : 0.000024459 seconds fast of NTP time
+Last offset     : +0.000037320 seconds
+RMS offset      : 0.000037320 seconds
+Frequency       : 6.500 ppm fast
+Residual freq   : +0.191 ppm
+Skew            : 5.132 ppm
+Root delay      : 0.000344757 seconds
+Root dispersion : 0.000198420 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:16:58Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000031812 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000089244 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:16:59Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000031030 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000098375 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:00Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000030249 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000107506 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:01Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000029467 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000116637 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:02Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000028685 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000125768 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:03Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000027903 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000134899 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:04Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000027122 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000144030 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:05Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000026340 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000153161 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:06Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000025558 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000162292 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:07Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000024776 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000171423 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:08Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000023994 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000180555 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:09Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000023213 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000189685 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:10Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000022431 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000198816 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:11Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000021649 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000207946 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:12Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000020868 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000217077 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:13Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:16:57 2026
+System time     : 0.000020086 seconds fast of NTP time
+Last offset     : +0.000008127 seconds
+RMS offset      : 0.000035498 seconds
+Frequency       : 6.586 ppm fast
+Residual freq   : +0.254 ppm
+Skew            : 7.846 ppm
+Root delay      : 0.000322552 seconds
+Root dispersion : 0.000226206 seconds
+Update interval : 16.3 seconds
+Leap status     : Normal
+2026-08-23T20:17:14Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000010298 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000078331 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:15Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000010201 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000086676 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:16Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000010103 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000095020 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:17Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000010005 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000103365 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:18Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009907 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000111710 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:19Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009810 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000120055 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:20Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009712 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000128401 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:21Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009614 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000136746 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:22Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009516 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000145092 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:23Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009419 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000153436 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:24Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009321 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000161782 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:25Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009223 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000170129 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:26Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009125 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000178473 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:27Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000009028 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000186818 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:28Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000008930 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000195164 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:29Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:13 2026
+System time     : 0.000008832 seconds fast of NTP time
+Last offset     : -0.000009532 seconds
+RMS offset      : 0.000033811 seconds
+Frequency       : 6.563 ppm fast
+Residual freq   : -0.006 ppm
+Skew            : 7.310 ppm
+Root delay      : 0.000337639 seconds
+Root dispersion : 0.000203510 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:17:30Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000099126 seconds slow of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000046227 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:31Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000083154 seconds slow of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000051198 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:32Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000067185 seconds slow of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000056167 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:33Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000051212 seconds slow of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000061138 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:34Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000035241 seconds slow of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000066108 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:35Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000019270 seconds slow of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000071079 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:36Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000003299 seconds slow of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000076049 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:37Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000081019 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:38Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000085990 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:39Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000090960 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:40Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000095930 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:41Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000100900 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:42Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000105871 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:43Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000110842 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:44Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000115813 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:45Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000120784 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:46Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:30 2026
+System time     : 0.000000004 seconds fast of NTP time
+Last offset     : -0.000108496 seconds
+RMS offset      : 0.000046968 seconds
+Frequency       : 4.928 ppm fast
+Residual freq   : -0.104 ppm
+Skew            : 3.849 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000125754 seconds
+Update interval : 16.8 seconds
+Leap status     : Normal
+2026-08-23T20:17:47Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000011657 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000093128 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:48Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000011439 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000096898 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:49Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000011220 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000100669 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:50Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000011002 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000104440 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:51Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000010784 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000108210 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:53Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000010566 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000111981 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:54Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000010347 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000115751 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:55Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000010129 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000119522 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:56Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000009911 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000123292 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:57Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000009693 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000127062 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:58Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000009475 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000130832 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:17:59Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000009256 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000134603 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:18:00Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000009038 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000138374 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:18:01Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000008820 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000142145 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:18:02Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000008602 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000145916 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:18:03Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:17:46 2026
+System time     : 0.000008384 seconds fast of NTP time
+Last offset     : +0.000011859 seconds
+RMS offset      : 0.000044715 seconds
+Frequency       : 5.006 ppm fast
+Residual freq   : +0.012 ppm
+Skew            : 2.746 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000149687 seconds
+Update interval : 16.2 seconds
+Leap status     : Normal
+2026-08-23T20:18:04Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000020390 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000117958 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:05Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000019732 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000121227 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:06Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000019075 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000124496 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:07Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000018418 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000127764 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:08Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000017760 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000131033 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:09Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000017103 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000134301 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:10Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000016446 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000137570 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:11Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000015788 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000140838 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:12Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000015131 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000144107 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:13Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000014474 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000147375 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:14Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000013816 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000150644 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:15Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000013159 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000153912 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:16Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000012502 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000157180 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:17Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000011845 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000160449 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:18Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000011187 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000163717 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:19Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:02 2026
+System time     : 0.000010530 seconds fast of NTP time
+Last offset     : +0.000012608 seconds
+RMS offset      : 0.000042608 seconds
+Frequency       : 5.147 ppm fast
+Residual freq   : +0.026 ppm
+Skew            : 2.231 ppm
+Root delay      : 0.000142801 seconds
+Root dispersion : 0.000166986 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:20Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000010172 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000042447 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:21Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000009939 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000044943 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:22Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000009707 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000047439 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:23Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000009475 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000049935 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:24Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000009242 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000052431 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:25Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000009010 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000054927 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:26Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000008778 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000057423 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:27Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000008545 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000059919 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:28Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000008313 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000062415 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:29Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000008081 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000064912 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:30Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000007848 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000067408 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:31Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000007616 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000069904 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:32Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000007384 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000072400 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:33Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000007152 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000074897 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:34Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000006919 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000077393 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:35Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:18 2026
+System time     : 0.000006687 seconds slow of NTP time
+Last offset     : -0.000020793 seconds
+RMS offset      : 0.000040952 seconds
+Frequency       : 4.962 ppm fast
+Residual freq   : -0.021 ppm
+Skew            : 1.466 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000079889 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:36Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000876 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000061120 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:37Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000875 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000063385 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:38Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000873 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000065650 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:39Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000872 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000067915 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:40Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000870 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000070181 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:41Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000869 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000072446 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:42Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000867 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000074712 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:43Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000866 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000076977 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:44Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000864 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000079242 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:45Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000863 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000081508 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:46Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000861 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000083773 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:47Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000860 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000086038 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:48Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000858 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000088303 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:49Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000857 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000090569 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal
+2026-08-23T20:18:50Z
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Sun Aug 23 20:18:35 2026
+System time     : 0.000000855 seconds fast of NTP time
+Last offset     : +0.000007508 seconds
+RMS offset      : 0.000038923 seconds
+Frequency       : 5.010 ppm fast
+Residual freq   : +0.010 ppm
+Skew            : 1.247 ppm
+Root delay      : 0.000139226 seconds
+Root dispersion : 0.000092834 seconds
+Update interval : 16.1 seconds
+Leap status     : Normal

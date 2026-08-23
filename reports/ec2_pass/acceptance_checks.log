@@ -1,0 +1,18 @@
+command: git status --short
+ M reports/ec2_pass/acceptance_checks.log
+exit_code=0
+command: git log --oneline origin/main..main
+c9063de Record blocked EC2 measurement pass
+e21493f Add EC2 measurement instrumentation and orchestration
+exit_code=0
+command: git reflog show origin/main
+c8a2a85 refs/remotes/origin/main@{0}: update by push
+5dc3d3c refs/remotes/origin/main@{1}: update by push
+ebce760 refs/remotes/origin/main@{2}: update by push
+exit_code=0
+command: bash -n infra/provision.sh infra/bootstrap.sh benchmark/run_remote.sh benchmark/sweep_rate.sh
+exit_code=0
+command: python3 -m py_compile benchmark/summarize.py
+exit_code=0
+command: literal comment marker grep
+exit_code=0

@@ -1,0 +1,7 @@
+NOT_RUN: 5dc3d3c versus HEAD A/B on two hosts did not execute.
+Reason: Part A provisioning failed before any EC2 instance was created.
+Build 5dc3d3c on EC2: NOT_RUN.
+Build HEAD on EC2: NOT_RUN.
+SHA-256 byte identity comparison on EC2: NOT_RUN.
+Rates 100000,300000,500000 x 3 repeats: NOT_RUN.
+No local substitute was run.

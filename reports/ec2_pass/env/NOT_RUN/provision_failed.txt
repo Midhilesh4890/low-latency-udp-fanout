@@ -1,0 +1,2 @@
+NOT_RUN: no EC2 host existed because provisioning failed before any instance launched.
+Reason: aws ec2 run-instances for m7i.2xlarge returned InvalidParameterCombination: The specified instance type is not eligible for Free Tier.

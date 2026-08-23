@@ -337,15 +337,19 @@ def summarize_receiver(root, latency_csv, skip_warmup):
     saturated_by_rate = bool(offered_rate is not None and not math.isnan(achieved_rate) and achieved_rate < offered_rate * ACHIEVED_RATE_RATIO)
     saturated = bool(saturated_by_ramp or saturated_by_rate)
     metrics = {metric_key(item): percentile(values, item) for item in PERCENTILES}
+    sample_count = data.get("sample_count", parameters.get("sample_count", received))
     row = {
         "row_type": "run",
         "config": "",
         "repeat": "",
+        "run_order_index": data.get("run_order_index", ""),
         "run_dir": str(run_dir),
         "receiver": receiver_for(latency_csv),
         "offered_rate": offered_rate,
         "rate": parameters.get("rate", ""),
         "count": parameters.get("count", ""),
+        "sample_count": sample_count,
+        "p9999_grade": data.get("p9999_grade", parameters.get("p9999_grade", "")),
         "slots": parameters.get("slots", ""),
         "type": parameters.get("type", ""),
         "cpu_producer": parameters.get("cpu_producer", ""),
@@ -495,7 +499,7 @@ def aggregate_rows(root, rows):
 
 
 def public_keys():
-    return ["row_type", "config", "repeat", "run_dir", "receiver", "offered_rate", "rate", "count", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "consumer_lapped", "sender_lapped", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "receiver_seq_jump_raw", "fec_recovered", "fec_late_recovered_too_old", "fec_closed_by_k", "fec_closed_by_timeout", "fec_closed_by_flush", "fec_data_bytes", "fec_parity_bytes", "fec_overhead_pct", "fec_recovery_p50_ns", "fec_recovery_p99_ns", "fec_recovery_p999_ns", "fec_recovery_p9999_ns", "fec_recovery_max_ns", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
+    return ["row_type", "config", "repeat", "run_order_index", "run_dir", "receiver", "offered_rate", "rate", "count", "sample_count", "p9999_grade", "slots", "type", "cpu_producer", "cpu_sender", "cpu_receiver", "cpu_consumer", "sndbuf", "rcvbuf", "consumer_lapped", "sender_lapped", "warmup", "skip_warmup", "hostname", "clock_method", "max_drift_ns", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "p50", "p90", "p99", "p99_9", "p99_99", "min", "mean", "max", "fanout_spread_p99", "receiver_seq_jump_raw", "fec_recovered", "fec_late_recovered_too_old", "fec_closed_by_k", "fec_closed_by_timeout", "fec_closed_by_flush", "fec_data_bytes", "fec_parity_bytes", "fec_overhead_pct", "fec_recovery_p50_ns", "fec_recovery_p99_ns", "fec_recovery_p999_ns", "fec_recovery_p9999_ns", "fec_recovery_max_ns", "ramp_ratio", "ramp_slope_ns", "saturated", "saturated_by_ramp", "saturated_by_rate", "saturation_triggers", "high_loss", "freeze_events", "clock_invalid", "void", "valid_latency", "aggregate_repeats", "p50_median", "p50_min", "p50_max", "p99_median", "p99_min", "p99_max", "max_median", "max_min", "max_max", "freeze_count", "aggregate_note"]
 
 
 def public_row(row):
@@ -521,7 +525,7 @@ def print_table(rows, warnings):
         item = public_row(row)
         item["flags"] = flags_for(row)
         display.append(item)
-    columns = ["row_type", "config", "repeat", "receiver", "rate", "count", "warmup", "skip_warmup", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "consumer_lapped", "sender_lapped", "p50", "p99", "p99_9", "max", "ramp_ratio", "ramp_slope_ns", "saturation_triggers", "flags", "freeze_count"]
+    columns = ["row_type", "config", "repeat", "run_order_index", "receiver", "rate", "count", "sample_count", "p9999_grade", "warmup", "skip_warmup", "wall_clock_received_rate", "achieved_rate", "received", "expected", "dropped", "drop_rate", "consumer_lapped", "sender_lapped", "p50", "p99", "p99_9", "max", "ramp_ratio", "ramp_slope_ns", "saturation_triggers", "flags", "freeze_count"]
     widths = {column: len(column) for column in columns}
     lines = []
     for row in display:

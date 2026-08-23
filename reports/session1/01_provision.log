@@ -1,0 +1,326 @@
+command: aws sts get-caller-identity --region us-east-1
+{
+    "UserId": "AIDAR6LDV5IENCRPAAA2B",
+    "Account": "133889911304",
+    "Arn": "arn:aws:iam::133889911304:user/aws-cleanup-script"
+}
+
+command: aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A --query Quota.Value --region us-east-1
+16.0
+
+command: aws ec2 describe-placement-groups --group-names spectral-ec2-pass-cluster --region us-east-1
+
+aws: [ERROR]: An error occurred (InvalidPlacementGroup.Unknown) when calling the DescribePlacementGroups operation: The Placement Group 'spectral-ec2-pass-cluster' is unknown.
+
+command: REGION=us-east-1 AZ=us-east-1a INSTANCE_TYPE=m7i.2xlarge INSTANCE_COUNT=2 KEY_NAME=spectral-key NAME_PREFIX=spectral-ec2-pass bash infra/provision.sh
+{
+    "PlacementGroup": {
+        "GroupName": "spectral-ec2-pass-cluster",
+        "State": "available",
+        "Strategy": "cluster",
+        "GroupId": "pg-0dc67b835fdc4fc8c",
+        "GroupArn": "arn:aws:ec2:us-east-1:133889911304:placement-group/spectral-ec2-pass-cluster"
+    }
+}
+{
+    "ReservationId": "r-0ae8c10b83b09b1ae",
+    "OwnerId": "133889911304",
+    "Groups": [],
+    "Instances": [
+        {
+            "Architecture": "x86_64",
+            "BlockDeviceMappings": [],
+            "ClientToken": "b14073bc-92c3-4b74-acb1-05eab31c3108",
+            "EbsOptimized": false,
+            "EnaSupport": true,
+            "Hypervisor": "xen",
+            "NetworkInterfaces": [
+                {
+                    "Attachment": {
+                        "AttachTime": "2026-08-23T17:48:29+00:00",
+                        "AttachmentId": "eni-attach-0e9545fae3686d667",
+                        "DeleteOnTermination": true,
+                        "DeviceIndex": 0,
+                        "Status": "attaching",
+                        "NetworkCardIndex": 0
+                    },
+                    "Description": "",
+                    "Groups": [
+                        {
+                            "GroupId": "sg-02aee0ac1bfe22eba",
+                            "GroupName": "spectral-ec2-pass-sg"
+                        }
+                    ],
+                    "Ipv6Addresses": [],
+                    "MacAddress": "02:65:e4:aa:a9:ed",
+                    "NetworkInterfaceId": "eni-033bea6876071eecb",
+                    "OwnerId": "133889911304",
+                    "PrivateDnsName": "ip-172-31-11-39.ec2.internal",
+                    "PrivateIpAddress": "172.31.11.39",
+                    "PrivateIpAddresses": [
+                        {
+                            "Primary": true,
+                            "PrivateDnsName": "ip-172-31-11-39.ec2.internal",
+                            "PrivateIpAddress": "172.31.11.39"
+                        }
+                    ],
+                    "SourceDestCheck": true,
+                    "Status": "in-use",
+                    "SubnetId": "subnet-0e13c6a8d44c1a0c0",
+                    "VpcId": "vpc-0a7ba3916c416733f",
+                    "InterfaceType": "interface",
+                    "Operator": {
+                        "Managed": false
+                    }
+                }
+            ],
+            "RootDeviceName": "/dev/sda1",
+            "RootDeviceType": "ebs",
+            "SecurityGroups": [
+                {
+                    "GroupId": "sg-02aee0ac1bfe22eba",
+                    "GroupName": "spectral-ec2-pass-sg"
+                }
+            ],
+            "SourceDestCheck": true,
+            "StateReason": {
+                "Code": "pending",
+                "Message": "pending"
+            },
+            "Tags": [
+                {
+                    "Key": "Name",
+                    "Value": "spectral-ec2-pass"
+                },
+                {
+                    "Key": "Project",
+                    "Value": "spectral-ec2-pass"
+                }
+            ],
+            "VirtualizationType": "hvm",
+            "CpuOptions": {
+                "CoreCount": 4,
+                "ThreadsPerCore": 2
+            },
+            "CapacityReservationSpecification": {
+                "CapacityReservationPreference": "open"
+            },
+            "MetadataOptions": {
+                "State": "pending",
+                "HttpTokens": "required",
+                "HttpPutResponseHopLimit": 2,
+                "HttpEndpoint": "enabled",
+                "HttpProtocolIpv6": "disabled",
+                "InstanceMetadataTags": "disabled"
+            },
+            "EnclaveOptions": {
+                "Enabled": false
+            },
+            "BootMode": "uefi-preferred",
+            "PrivateDnsNameOptions": {
+                "HostnameType": "ip-name",
+                "EnableResourceNameDnsARecord": false,
+                "EnableResourceNameDnsAAAARecord": false
+            },
+            "MaintenanceOptions": {
+                "AutoRecovery": "default",
+                "RebootMigration": "default"
+            },
+            "CurrentInstanceBootMode": "uefi",
+            "Operator": {
+                "Managed": false
+            },
+            "InstanceId": "i-048926a1afd8d25ac",
+            "ImageId": "ami-052355af2a014bd2c",
+            "State": {
+                "Code": 0,
+                "Name": "pending"
+            },
+            "PrivateDnsName": "ip-172-31-11-39.ec2.internal",
+            "PublicDnsName": "",
+            "StateTransitionReason": "",
+            "KeyName": "spectral-key",
+            "AmiLaunchIndex": 1,
+            "ProductCodes": [],
+            "InstanceType": "m7i.2xlarge",
+            "LaunchTime": "2026-08-23T17:48:29+00:00",
+            "Placement": {
+                "AvailabilityZoneId": "use1-az1",
+                "GroupName": "",
+                "Tenancy": "default",
+                "GroupId": "pg-0dc67b835fdc4fc8c",
+                "AvailabilityZone": "us-east-1a"
+            },
+            "Monitoring": {
+                "State": "disabled"
+            },
+            "SubnetId": "subnet-0e13c6a8d44c1a0c0",
+            "VpcId": "vpc-0a7ba3916c416733f",
+            "PrivateIpAddress": "172.31.11.39"
+        },
+        {
+            "Architecture": "x86_64",
+            "BlockDeviceMappings": [],
+            "ClientToken": "b14073bc-92c3-4b74-acb1-05eab31c3108",
+            "EbsOptimized": false,
+            "EnaSupport": true,
+            "Hypervisor": "xen",
+            "NetworkInterfaces": [
+                {
+                    "Attachment": {
+                        "AttachTime": "2026-08-23T17:48:29+00:00",
+                        "AttachmentId": "eni-attach-0405729275b31f6aa",
+                        "DeleteOnTermination": true,
+                        "DeviceIndex": 0,
+                        "Status": "attaching",
+                        "NetworkCardIndex": 0
+                    },
+                    "Description": "",
+                    "Groups": [
+                        {
+                            "GroupId": "sg-02aee0ac1bfe22eba",
+                            "GroupName": "spectral-ec2-pass-sg"
+                        }
+                    ],
+                    "Ipv6Addresses": [],
+                    "MacAddress": "02:ab:32:c2:d7:7d",
+                    "NetworkInterfaceId": "eni-0e2cba91e57f628a7",
+                    "OwnerId": "133889911304",
+                    "PrivateDnsName": "ip-172-31-13-132.ec2.internal",
+                    "PrivateIpAddress": "172.31.13.132",
+                    "PrivateIpAddresses": [
+                        {
+                            "Primary": true,
+                            "PrivateDnsName": "ip-172-31-13-132.ec2.internal",
+                            "PrivateIpAddress": "172.31.13.132"
+                        }
+                    ],
+                    "SourceDestCheck": true,
+                    "Status": "in-use",
+                    "SubnetId": "subnet-0e13c6a8d44c1a0c0",
+                    "VpcId": "vpc-0a7ba3916c416733f",
+                    "InterfaceType": "interface",
+                    "Operator": {
+                        "Managed": false
+                    }
+                }
+            ],
+            "RootDeviceName": "/dev/sda1",
+            "RootDeviceType": "ebs",
+            "SecurityGroups": [
+                {
+                    "GroupId": "sg-02aee0ac1bfe22eba",
+                    "GroupName": "spectral-ec2-pass-sg"
+                }
+            ],
+            "SourceDestCheck": true,
+            "StateReason": {
+                "Code": "pending",
+                "Message": "pending"
+            },
+            "Tags": [
+                {
+                    "Key": "Name",
+                    "Value": "spectral-ec2-pass"
+                },
+                {
+                    "Key": "Project",
+                    "Value": "spectral-ec2-pass"
+                }
+            ],
+            "VirtualizationType": "hvm",
+            "CpuOptions": {
+                "CoreCount": 4,
+                "ThreadsPerCore": 2
+            },
+            "CapacityReservationSpecification": {
+                "CapacityReservationPreference": "open"
+            },
+            "MetadataOptions": {
+                "State": "pending",
+                "HttpTokens": "required",
+                "HttpPutResponseHopLimit": 2,
+                "HttpEndpoint": "enabled",
+                "HttpProtocolIpv6": "disabled",
+                "InstanceMetadataTags": "disabled"
+            },
+            "EnclaveOptions": {
+                "Enabled": false
+            },
+            "BootMode": "uefi-preferred",
+            "PrivateDnsNameOptions": {
+                "HostnameType": "ip-name",
+                "EnableResourceNameDnsARecord": false,
+                "EnableResourceNameDnsAAAARecord": false
+            },
+            "MaintenanceOptions": {
+                "AutoRecovery": "default",
+                "RebootMigration": "default"
+            },
+            "CurrentInstanceBootMode": "uefi",
+            "Operator": {
+                "Managed": false
+            },
+            "InstanceId": "i-059f31f1084a159e6",
+            "ImageId": "ami-052355af2a014bd2c",
+            "State": {
+                "Code": 0,
+                "Name": "pending"
+            },
+            "PrivateDnsName": "ip-172-31-13-132.ec2.internal",
+            "PublicDnsName": "",
+            "StateTransitionReason": "",
+            "KeyName": "spectral-key",
+            "AmiLaunchIndex": 0,
+            "ProductCodes": [],
+            "InstanceType": "m7i.2xlarge",
+            "LaunchTime": "2026-08-23T17:48:29+00:00",
+            "Placement": {
+                "AvailabilityZoneId": "use1-az1",
+                "GroupName": "",
+                "Tenancy": "default",
+                "GroupId": "pg-0dc67b835fdc4fc8c",
+                "AvailabilityZone": "us-east-1a"
+            },
+            "Monitoring": {
+                "State": "disabled"
+            },
+            "SubnetId": "subnet-0e13c6a8d44c1a0c0",
+            "VpcId": "vpc-0a7ba3916c416733f",
+            "PrivateIpAddress": "172.31.13.132"
+        }
+    ]
+}
+
+exit_code: 0
+
+command: aws ec2 wait instance-running --instance-ids i-048926a1afd8d25ac i-059f31f1084a159e6 --region us-east-1
+exit_code: 0
+
+command: aws ec2 describe-instances --instance-ids i-048926a1afd8d25ac i-059f31f1084a159e6 --region us-east-1 --query Reservations[].Instances[].{Id:InstanceId,State:State.Name,PublicIp:PublicIpAddress,PrivateIp:PrivateIpAddress,AZ:Placement.AvailabilityZone,Subnet:SubnetId,SG:SecurityGroups[0].GroupId,PG:Placement.GroupId,AMI:ImageId,Type:InstanceType}
+[
+    {
+        "Id": "i-048926a1afd8d25ac",
+        "State": "running",
+        "PublicIp": "100.63.200.242",
+        "PrivateIp": "172.31.11.39",
+        "AZ": "us-east-1a",
+        "Subnet": "subnet-0e13c6a8d44c1a0c0",
+        "SG": "sg-02aee0ac1bfe22eba",
+        "PG": "pg-0dc67b835fdc4fc8c",
+        "AMI": "ami-052355af2a014bd2c",
+        "Type": "m7i.2xlarge"
+    },
+    {
+        "Id": "i-059f31f1084a159e6",
+        "State": "running",
+        "PublicIp": "100.54.211.130",
+        "PrivateIp": "172.31.13.132",
+        "AZ": "us-east-1a",
+        "Subnet": "subnet-0e13c6a8d44c1a0c0",
+        "SG": "sg-02aee0ac1bfe22eba",
+        "PG": "pg-0dc67b835fdc4fc8c",
+        "AMI": "ami-052355af2a014bd2c",
+        "Type": "m7i.2xlarge"
+    }
+]

@@ -1,0 +1,26 @@
+Trap 1 - file I/O on measurement path
+Audit result: harness/src/consumer.cpp buffers CsvRecord values in memory during the receive loop and performs open/write/close only after the loop exits.
+Empirical disk/tmpfs/no-write comparison: NOT_RUN. Reason: cross-host smoke orchestration failed before producing latency rows; local measurement is forbidden by the task. No p99.9 or p99.99 values fabricated.
+Rejected alternative: local shared-memory comparison on WSL2, because the task forbids local latency measurement.
+
+Trap 2 - contended isolated cores
+Change: added benchmark/preflight_isolation.sh and wired benchmark/run_remote.sh to abort before measurement when benchmark core assignments duplicate or runnable/stray benchmark tasks occupy selected cores.
+Deliberate EC2 failure command: ssh -i /home/midhilesh/.ssh/spectral-key.pem ubuntu@100.63.200.242 'cd ~/task && bash benchmark/preflight_isolation.sh --cores 1,1 --label deliberate_duplicate'
+Deliberate failure output: preflight failed: duplicate benchmark core 1 for deliberate_duplicate
+
+Trap 3 - run length for p99.99
+Change: benchmark/sweep_rate.sh now computes p99.99-grade runs from required sample count, with defaults min_p9999_samples=10000000 and min_p9999_seconds=30. Exploratory runs can use --not-p9999-grade and are marked in run.json.
+Change: benchmark/run_remote.sh writes sample_count and p9999_grade to run.json.
+Change: benchmark/summarize.py emits sample_count and p9999_grade.
+Verification: benchmark/results/session1_order_check/20260823T174721Z/rate_100000/rep_1/run.json contains sample_count=100 and p9999_grade=false for dry-run-order metadata.
+
+Trap 4 - interleaved compared configurations
+Change: benchmark/sweep_rate.sh loop order is repeat outer, rate inner, and passes run_order_index to run_remote.
+Dry-run command: bash benchmark/sweep_rate.sh --rates 100000,200000 --repeats 3 --dry-run-order --not-p9999-grade --count 100 --warmup 0 --outdir benchmark/results/session1_order_check
+Dry-run output:
+1	100000	1	100	false
+2	200000	1	100	false
+3	100000	2	100	false
+4	200000	2	100	false
+5	100000	3	100	false
+6	200000	3	100	false

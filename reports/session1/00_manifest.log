@@ -1,0 +1,16 @@
+reports/session1/00_manifest.log - file manifest and purposes
+reports/session1/01_provision.log - AWS identity, quota, placement group, provisioning commands and instance details
+reports/session1/02_bootstrap.log - bootstrap, tuning, env capture, and EC2 build/test summary
+reports/session1/03_traps.log - trap audit, code changes, dry-run order proof, and NOT_RUN reasons
+reports/session1/04_clock.log - clock method decision, PHC fallback evidence, chrony samples, clock_probe result
+reports/session1/05_teardown.log - termination and independent AWS cleanup verification
+reports/session1/06_report.md - synthesis and review checklist
+reports/session1/env/DESKTOP-RLS4QHI/* - raw bootstrap env captures produced by infra/bootstrap.sh path expansion
+reports/session1/env/ip-172-31-11-39/chrony_tracking_120s.txt - first host chrony 120-second tracking sample
+reports/session1/env/ip-172-31-13-132/chrony_tracking_120s.txt - second host chrony 120-second tracking sample
+benchmark/preflight_isolation.sh - benchmark core isolation preflight used by run_remote.sh
+benchmark/run_remote.sh - remote runner with preflight and run metadata fields
+benchmark/sweep_rate.sh - interleaved sweep planner and p99.99 sample sizing
+benchmark/summarize.py - summary output for sample_count and run_order_index metadata
+benchmark/results/session1_order_check/20260823T174721Z - non-measurement dry-run order proof
+benchmark/results/session1_smoke_20260823T1818Z - failed smoke attempt logs and NOT_RUN evidence

@@ -32,6 +32,7 @@ placement_group_type=""
 nic_driver_version=""
 isolated_cores=""
 mtu=""
+latency_output="disk"
 no_build="false"
 run_order_index=""
 p9999_grade="true"
@@ -46,6 +47,10 @@ require_value() {
     printf '%s\n' "missing value for $1" >&2
     exit 2
   fi
+}
+
+quote_one() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\''/g")"
 }
 
 while [[ -n "${1+x}" ]]; do
@@ -82,6 +87,7 @@ while [[ -n "${1+x}" ]]; do
     --nic-driver-version) require_value "$@"; nic_driver_version="$2"; shift 2 ;;
     --isolated-cores) require_value "$@"; isolated_cores="$2"; shift 2 ;;
     --mtu) require_value "$@"; mtu="$2"; shift 2 ;;
+    --latency-output) require_value "$@"; latency_output="$2"; shift 2 ;;
     --run-order-index) require_value "$@"; run_order_index="$2"; shift 2 ;;
     --p9999-grade) p9999_grade="true"; shift ;;
     --not-p9999-grade) p9999_grade="false"; shift ;;
@@ -96,6 +102,10 @@ if [[ -z "$tx_host" || -z "$rx_hosts" || -z "$rx_privates" ]]; then
   usage >&2
   exit 2
 fi
+case "$latency_output" in
+  disk|tmpfs|none) ;;
+  *) printf '%s\n' "unknown --latency-output: $latency_output" >&2; exit 2 ;;
+esac
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
@@ -134,13 +144,56 @@ rsync_from() {
 
 remote_pid_files=()
 cleanup_remote() {
-  for item in "${remote_pid_files[@]}"; do
-    host="${item%%:*}"
-    pid_file="${item#*:}"
-    ssh_host "$host" "if [[ -s '$pid_file' ]]; then kill \$(cat '$pid_file') 2>/dev/null || true; fi" >/dev/null 2>&1 || true
+  local idx item host rest pid_file label
+  for ((idx=${#remote_pid_files[@]}-1; idx>=0; --idx)); do
+    item="${remote_pid_files[$idx]}"
+    host="${item%%|*}"
+    rest="${item#*|}"
+    pid_file="${rest%%|*}"
+    label="${rest#*|}"
+    ssh_host "$host" "if [[ -s '$pid_file' ]]; then pid=\$(cat '$pid_file'); kill \$pid 2>/dev/null || true; for i in \$(seq 1 40); do kill -0 \$pid 2>/dev/null || exit 0; sleep 0.05; done; kill -9 \$pid 2>/dev/null || true; fi" >/dev/null 2>&1 || true
+    printf '%s\n' "cleanup attempted: $label on $host" >&2 || true
   done
 }
 trap cleanup_remote EXIT INT TERM
+
+wait_remote() {
+  local host="$1"
+  local timeout_s="$2"
+  local label="$3"
+  local command="$4"
+  local end=$((SECONDS + timeout_s))
+  while (( SECONDS < end )); do
+    if ssh_host "$host" "$command" >/dev/null 2>&1; then
+      printf '%s\n' "confirmed: $label"
+      return 0
+    fi
+    sleep 0.05
+  done
+  printf '%s\n' "confirmation failed after ${timeout_s}s: $label" >&2
+  return 1
+}
+
+wait_remote_pid_exit() {
+  local host="$1"
+  local pid_file="$2"
+  local label="$3"
+  local timeout_s="$4"
+  local end=$((SECONDS + timeout_s))
+  while (( SECONDS < end )); do
+    if ssh_host "$host" "if [[ -s '$pid_file' ]]; then ! kill -0 \$(cat '$pid_file') 2>/dev/null; else false; fi" >/dev/null 2>&1; then
+      printf '%s\n' "exited: $label"
+      return 0
+    fi
+    sleep 0.2
+  done
+  printf '%s\n' "process did not exit after ${timeout_s}s: $label" >&2
+  return 1
+}
+
+register_pid() {
+  remote_pid_files+=("$1|$2|$3")
+}
 
 if [[ "$no_build" == "false" ]]; then
   ssh_host "$tx_host" "cd $remote_repo && make -C harness clean && make -C harness && make -C harness test"
@@ -155,9 +208,10 @@ done
 
 preflight_remote() {
   local host="$1"
-  local cores="$2"
-  local label="$3"
-  ssh_host "$host" "cd $remote_repo && bash benchmark/preflight_isolation.sh --cores '$cores' --label '$label'"
+  local cores_arg="$2"
+  local label_arg="$3"
+  local iso_arg="${isolated_cores:-$cores_arg}"
+  ssh_host "$host" "cd $remote_repo && bash benchmark/preflight_isolation.sh --cores '$cores_arg' --isolated-cores '$iso_arg' --label '$label_arg'"
 }
 
 preflight_remote "$tx_host" "$cpu_producer,$cpu_sender" "tx"
@@ -179,6 +233,7 @@ for host in "${!rx_core_lists[@]}"; do
   preflight_remote "$host" "${rx_core_lists[$host]}" "rx"
 done
 
+rx_remote_dirs=()
 for ((i=0; i<fanout; ++i)); do
   host_index="$i"
   if (( host_index >= ${#rx_host_array[@]} )); then
@@ -188,13 +243,36 @@ for ((i=0; i<fanout; ++i)); do
   port=$((base_port + i))
   rx_name="rx_$((i + 1))"
   remote_rx="$remote_base/$rx_name"
+  rx_remote_dirs+=("$host|$rx_name|$remote_rx")
   out_shm="/fanout_out_$((i + 1))_$run_id"
-  ssh_host "$host" "mkdir -p '$remote_rx' && rm -f /dev/shm/${out_shm#/} && cd $remote_repo && (nohup taskset -c '$cpu_receiver' harness/bin/receiver --out-shm '$out_shm' --slots '$slots' --port '$port' --count '$total_count' --rcvbuf '$rcvbuf' --fec-recovery-csv '$remote_rx/fec_recovery.csv' < /dev/null >'$remote_rx/receiver.log' 2>&1 & echo \$! >'$remote_rx/receiver.pid')"
-  remote_pid_files+=("$host:$remote_rx/receiver.pid")
-  sleep 0.005
+  ssh_host "$host" "mkdir -p '$remote_rx' && rm -f /dev/shm/${out_shm#/} && cd $remote_repo && (nohup taskset -c '$cpu_receiver' harness/bin/receiver --out-shm '$out_shm' --slots '$slots' --port '$port' --count '$total_count' --rcvbuf '$rcvbuf' --idle-ms 30000 --fec-recovery-csv '$remote_rx/fec_recovery.csv' < /dev/null >'$remote_rx/receiver.log' 2>&1 & echo \$! >'$remote_rx/receiver.pid')"
+  register_pid "$host" "$remote_rx/receiver.pid" "$rx_name receiver"
+  wait_remote "$host" 10 "$rx_name receiver pid" "[[ -s '$remote_rx/receiver.pid' ]]"
+  wait_remote "$host" 10 "$rx_name receiver alive" "kill -0 \$(cat '$remote_rx/receiver.pid') 2>/dev/null"
+  wait_remote "$host" 10 "$rx_name udp bind port $port" "ss -H -lun | grep -q ':$port'"
+  wait_remote "$host" 10 "$rx_name output shm" "[[ -e '/dev/shm/${out_shm#/}' ]]"
+done
 
-  ssh_host "$host" "cd $remote_repo && (nohup taskset -c '$cpu_consumer' harness/bin/consumer --shm '$out_shm' --slots '$slots' --from-edge --count '$total_count' --csv '$remote_rx/latency.bin' < /dev/null >'$remote_rx/consumer.log' 2>&1 & echo \$! >'$remote_rx/consumer.pid')"
-  remote_pid_files+=("$host:$remote_rx/consumer.pid")
+for ((i=0; i<fanout; ++i)); do
+  host_index="$i"
+  if (( host_index >= ${#rx_host_array[@]} )); then
+    host_index=0
+  fi
+  host="${rx_host_array[$host_index]}"
+  rx_name="rx_$((i + 1))"
+  remote_rx="$remote_base/$rx_name"
+  out_shm="/fanout_out_$((i + 1))_$run_id"
+  csv_args=""
+  if [[ "$latency_output" == "disk" ]]; then
+    csv_args="--csv '$remote_rx/latency.bin'"
+  elif [[ "$latency_output" == "tmpfs" ]]; then
+    csv_args="--csv '/dev/shm/${run_id}_${rx_name}_latency.bin'"
+    ssh_host "$host" "rm -f '/dev/shm/${run_id}_${rx_name}_latency.bin'"
+  fi
+  ssh_host "$host" "cd $remote_repo && (nohup taskset -c '$cpu_consumer' harness/bin/consumer --shm '$out_shm' --slots '$slots' --from-edge --count '$total_count' --idle-ms 30000 $csv_args < /dev/null >'$remote_rx/consumer.log' 2>&1 & echo \$! >'$remote_rx/consumer.pid')"
+  register_pid "$host" "$remote_rx/consumer.pid" "$rx_name consumer"
+  wait_remote "$host" 10 "$rx_name consumer pid" "[[ -s '$remote_rx/consumer.pid' ]]"
+  wait_remote "$host" 10 "$rx_name consumer alive" "kill -0 \$(cat '$remote_rx/consumer.pid') 2>/dev/null"
 done
 
 sender_args=()
@@ -207,45 +285,52 @@ for ((i=0; i<fanout; ++i)); do
 done
 sender_args_text=""
 for value in "${sender_args[@]}"; do
-  sender_args_text+=" '$(printf '%s' "$value" | sed "s/'/'\\''/g")'"
+  sender_args_text+=" $(quote_one "$value")"
 done
 
-ssh_host "$tx_host" "mkdir -p '$remote_base/tx' && rm -f /dev/shm/fanout_in_$run_id && cd $remote_repo && (nohup taskset -c '$cpu_producer' harness/bin/producer --shm '/fanout_in_$run_id' --slots '$slots' --count '$total_count' --rate '$rate' --type '$message_type' < /dev/null >'$remote_base/tx/producer.log' 2>&1 & echo \$! >'$remote_base/tx/producer.pid')"
-remote_pid_files+=("$tx_host:$remote_base/tx/producer.pid")
-sleep 0.005
-ssh_host "$tx_host" "cd $remote_repo && (nohup taskset -c '$cpu_sender' harness/bin/sender --in-shm '/fanout_in_$run_id' --slots '$slots' --count '$total_count' --sndbuf '$sndbuf' --fec-k '$fec_k' --fec-timeout-us '$fec_timeout_us' --batch-size '$batch_size' --batch-timeout-us '$batch_timeout_us' $sender_args_text < /dev/null >'$remote_base/tx/sender.log' 2>&1 & echo \$! >'$remote_base/tx/sender.pid')"
-remote_pid_files+=("$tx_host:$remote_base/tx/sender.pid")
+ssh_host "$tx_host" "mkdir -p '$remote_base/tx' && rm -f /dev/shm/fanout_in_$run_id && cd $remote_repo && (nohup taskset -c '$cpu_producer' harness/bin/producer --shm '/fanout_in_$run_id' --slots '$slots' --count '$total_count' --rate '$rate' --type '$message_type' < /dev/null >'$remote_base/tx/producer.log' 2>&1 & echo \$! >'$remote_base/tx/producer.pid') && for i in \$(seq 1 10000); do [[ -e '/dev/shm/fanout_in_$run_id' ]] && break; sleep 0.001; done && [[ -e '/dev/shm/fanout_in_$run_id' ]] && (nohup taskset -c '$cpu_sender' harness/bin/sender --in-shm '/fanout_in_$run_id' --slots '$slots' --count '$total_count' --sndbuf '$sndbuf' --fec-k '$fec_k' --fec-timeout-us '$fec_timeout_us' --batch-size '$batch_size' --batch-timeout-us '$batch_timeout_us' $sender_args_text < /dev/null >'$remote_base/tx/sender.log' 2>&1 & echo \$! >'$remote_base/tx/sender.pid')"
+register_pid "$tx_host" "$remote_base/tx/producer.pid" "tx producer"
+register_pid "$tx_host" "$remote_base/tx/sender.pid" "tx sender"
+wait_remote "$tx_host" 10 "producer pid" "[[ -s '$remote_base/tx/producer.pid' ]]"
+wait_remote "$tx_host" 10 "sender pid" "[[ -s '$remote_base/tx/sender.pid' ]]"
 
-ssh_host "$tx_host" "tail --pid=\$(cat '$remote_base/tx/producer.pid') -f /dev/null; tail --pid=\$(cat '$remote_base/tx/sender.pid') -f /dev/null"
-for ((i=0; i<fanout; ++i)); do
-  host_index="$i"
-  if (( host_index >= ${#rx_host_array[@]} )); then
-    host_index=0
+wait_remote_pid_exit "$tx_host" "$remote_base/tx/sender.pid" "sender" 120
+wait_remote_pid_exit "$tx_host" "$remote_base/tx/producer.pid" "producer" 120
+for entry in "${rx_remote_dirs[@]}"; do
+  host="${entry%%|*}"
+  rest="${entry#*|}"
+  rx_name="${rest%%|*}"
+  remote_rx="${rest#*|}"
+  wait_remote_pid_exit "$host" "$remote_rx/receiver.pid" "$rx_name receiver" 120 || true
+  wait_remote_pid_exit "$host" "$remote_rx/consumer.pid" "$rx_name consumer" 120 || true
+  if [[ "$latency_output" == "disk" ]]; then
+    ssh_host "$host" "cd $remote_repo && if [[ -s '$remote_rx/latency.bin' ]]; then python3 benchmark/bin_to_csv.py '$remote_rx/latency.bin' '$remote_rx/latency.csv'; fi"
+  elif [[ "$latency_output" == "tmpfs" ]]; then
+    ssh_host "$host" "cd $remote_repo && if [[ -s '/dev/shm/${run_id}_${rx_name}_latency.bin' ]]; then python3 benchmark/bin_to_csv.py '/dev/shm/${run_id}_${rx_name}_latency.bin' '$remote_rx/latency.csv' && cp '/dev/shm/${run_id}_${rx_name}_latency.bin' '$remote_rx/latency.bin'; fi"
+  else
+    ssh_host "$host" "printf '%s\n' 'latency_output=none' >'$remote_rx/latency_output.txt'"
   fi
-  host="${rx_host_array[$host_index]}"
-  rx_name="rx_$((i + 1))"
-  ssh_host "$host" "tail --pid=\$(cat '$remote_base/$rx_name/receiver.pid') -f /dev/null || true; tail --pid=\$(cat '$remote_base/$rx_name/consumer.pid') -f /dev/null || true; cd $remote_repo && if [[ -s '$remote_base/$rx_name/latency.bin' ]]; then python3 benchmark/bin_to_csv.py '$remote_base/$rx_name/latency.bin' '$remote_base/$rx_name/latency.csv'; fi"
 done
 
 mkdir -p "$outdir/tx"
 rsync_from "$tx_host" "$remote_base/tx/" "$outdir/tx/"
-for ((i=0; i<fanout; ++i)); do
-  host_index="$i"
-  if (( host_index >= ${#rx_host_array[@]} )); then
-    host_index=0
-  fi
-  host="${rx_host_array[$host_index]}"
-  rx_name="rx_$((i + 1))"
+for entry in "${rx_remote_dirs[@]}"; do
+  host="${entry%%|*}"
+  rest="${entry#*|}"
+  rx_name="${rest%%|*}"
+  remote_rx="${rest#*|}"
   mkdir -p "$outdir/$rx_name"
-  rsync_from "$host" "$remote_base/$rx_name/" "$outdir/$rx_name/"
-  if [[ ! -s "$outdir/$rx_name/latency.csv" ]] || [[ "$(wc -l < "$outdir/$rx_name/latency.csv")" -le 1 ]]; then
-    printf '%s\n' "consumer produced no rows for $rx_name" >"$outdir/$rx_name/FAILURE"
-    exit 1
+  rsync_from "$host" "$remote_rx/" "$outdir/$rx_name/"
+  if [[ "$latency_output" != "none" ]]; then
+    if [[ ! -s "$outdir/$rx_name/latency.csv" ]] || [[ "$(wc -l < "$outdir/$rx_name/latency.csv")" -le 1 ]]; then
+      printf '%s\n' "consumer produced no rows for $rx_name" >"$outdir/$rx_name/FAILURE"
+      exit 1
+    fi
   fi
 done
 
 end_ns="$(date +%s%N)"
-export RUN_RATE="$rate" RUN_COUNT="$count" RUN_WARMUP="$warmup" RUN_SLOTS="$slots" RUN_TYPE="$message_type" RUN_PORT="$base_port" RUN_FANOUT="$fanout" RUN_SNDBUF="$sndbuf" RUN_RCVBUF="$rcvbuf" RUN_FEC_K="$fec_k" RUN_FEC_TIMEOUT_US="$fec_timeout_us" RUN_BATCH_SIZE="$batch_size" RUN_BATCH_TIMEOUT_US="$batch_timeout_us" RUN_TX_HOST="$tx_host" RUN_RX_HOSTS="$rx_hosts" RUN_INSTANCE_TYPE="$instance_type" RUN_AZ="$az" RUN_PLACEMENT_GROUP_TYPE="$placement_group_type" RUN_CLOCK_METHOD="$clock_method" RUN_CLOCK_RESIDUAL_BOUND_NS="$clock_residual_bound_ns" RUN_NIC_DRIVER_VERSION="$nic_driver_version" RUN_ISOLATED_CORES="$isolated_cores" RUN_MTU="$mtu" RUN_OUTDIR="$outdir" RUN_DURATION_NS="$((end_ns - start_ns))" RUN_CPU_PRODUCER="$cpu_producer" RUN_CPU_SENDER="$cpu_sender" RUN_CPU_RECEIVER="$cpu_receiver" RUN_CPU_CONSUMER="$cpu_consumer" RUN_ORDER_INDEX="$run_order_index" RUN_P9999_GRADE="$p9999_grade" RUN_LABEL="$run_label"
+export RUN_RATE="$rate" RUN_COUNT="$count" RUN_WARMUP="$warmup" RUN_SLOTS="$slots" RUN_TYPE="$message_type" RUN_PORT="$base_port" RUN_FANOUT="$fanout" RUN_SNDBUF="$sndbuf" RUN_RCVBUF="$rcvbuf" RUN_FEC_K="$fec_k" RUN_FEC_TIMEOUT_US="$fec_timeout_us" RUN_BATCH_SIZE="$batch_size" RUN_BATCH_TIMEOUT_US="$batch_timeout_us" RUN_TX_HOST="$tx_host" RUN_RX_HOSTS="$rx_hosts" RUN_INSTANCE_TYPE="$instance_type" RUN_AZ="$az" RUN_PLACEMENT_GROUP_TYPE="$placement_group_type" RUN_CLOCK_METHOD="$clock_method" RUN_CLOCK_RESIDUAL_BOUND_NS="$clock_residual_bound_ns" RUN_NIC_DRIVER_VERSION="$nic_driver_version" RUN_ISOLATED_CORES="$isolated_cores" RUN_MTU="$mtu" RUN_OUTDIR="$outdir" RUN_DURATION_NS="$((end_ns - start_ns))" RUN_CPU_PRODUCER="$cpu_producer" RUN_CPU_SENDER="$cpu_sender" RUN_CPU_RECEIVER="$cpu_receiver" RUN_CPU_CONSUMER="$cpu_consumer" RUN_ORDER_INDEX="$run_order_index" RUN_P9999_GRADE="$p9999_grade" RUN_LABEL="$run_label" RUN_LATENCY_OUTPUT="$latency_output"
 python3 - "$outdir/run.json" <<'PY'
 import json
 import os
@@ -280,6 +365,7 @@ data = {
         "fec_timeout_us": integer("RUN_FEC_TIMEOUT_US"),
         "batch_size": integer("RUN_BATCH_SIZE"),
         "batch_timeout_us": integer("RUN_BATCH_TIMEOUT_US"),
+        "latency_output": os.environ["RUN_LATENCY_OUTPUT"],
         "p9999_grade": os.environ["RUN_P9999_GRADE"] == "true",
         "outdir": os.environ["RUN_OUTDIR"]
     },

@@ -115,6 +115,6 @@ int main(int argc, char** argv) {
   rtts.reserve(samples.size());
   for (const auto& sample : samples) rtts.push_back(sample.rtt);
   auto best = std::min_element(samples.begin(), samples.end(), [](const Sample& a, const Sample& b) { return a.rtt < b.rtt; });
-  std::printf("samples=%zu rtt_min_ns=%llu rtt_p50_ns=%llu rtt_p99_ns=%llu min_rtt_offset_ns=%lld\n", samples.size(), static_cast<unsigned long long>(percentile(rtts, 0.0)), static_cast<unsigned long long>(percentile(rtts, 0.50)), static_cast<unsigned long long>(percentile(rtts, 0.99)), best == samples.end() ? 0 : static_cast<long long>(best->offset));
+  std::printf("samples=%zu rtt_min_ns=%llu rtt_p50_ns=%llu rtt_p99_ns=%llu rtt_p999_ns=%llu min_rtt_offset_ns=%lld\n", samples.size(), static_cast<unsigned long long>(percentile(rtts, 0.0)), static_cast<unsigned long long>(percentile(rtts, 0.50)), static_cast<unsigned long long>(percentile(rtts, 0.99)), static_cast<unsigned long long>(percentile(rtts, 0.999)), best == samples.end() ? 0 : static_cast<long long>(best->offset));
   return 0;
 }

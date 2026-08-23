@@ -1,11 +1,10 @@
-NOT_RUN: clock methodology could not be executed.
+NOT_RUN: clock methodology did not execute.
 Reason: Part A provisioning failed before an EC2 instance was created.
-Decision tree status:
-- ethtool -T ens5: NOT_RUN, no host.
-- ENA driver version check: NOT_RUN, no host.
-- cluster placement group versus precision time placement group evidence: NOT_RUN, no host.
-- chrony PHC or Amazon Time Sync configuration: NOT_RUN, no host.
-- tools/clock_probe.cpp was authored but not compiled or run locally.
+ethtool -T ens5: NOT_RUN, no host.
+modinfo ena version check: NOT_RUN, no host.
+Placement group empirical PHC decision: NOT_RUN, no host.
+chrony PHC or Amazon Time Sync configuration: NOT_RUN, no host.
+tools/clock_probe.cpp exists from e21493f and passed file existence verification, but was not compiled or run locally.
 clock_method=NOT_RUN
 clock_residual_bound_ns=NOT_RUN
-Rejected alternative: local WSL2 clock/loopback measurement, because the task explicitly says those numbers are worthless.
+Rejected alternative: local WSL2 clock or loopback measurement.

@@ -1,4 +1,3 @@
 NOT_RUN: fan-out 1/2/3 receivers did not execute.
-Reason: Part A provisioning failed before any EC2 instance was created.
-Quota path observed before provisioning failure: 16 vCPUs, so the planned fallback would have colocated 1/2/3 receiver processes on one RX host and labeled the result sender-side fan-out only.
-No local substitute was run.
+Reason: Part A provisioning failed before an EC2 instance was created.
+Quota check returned 16.0 vCPUs, so the intended path after two-host provisioning would have been the single-RX-host fallback for fanout 1,2,3 and would have been labeled sender-side fan-out only.

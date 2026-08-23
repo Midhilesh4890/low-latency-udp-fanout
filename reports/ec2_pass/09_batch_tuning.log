@@ -1,5 +1,4 @@
 NOT_RUN: batch-size and batch-timeout sensitivity sweep did not execute.
-Reason: Part A provisioning failed before any EC2 instance was created.
+Reason: Part A provisioning failed before an EC2 instance was created.
 Requested matrix batch_size=1,8,32 batch_timeout_us=0,10,50 rate=100000,500000 repeats=3: NOT_RUN.
-Code change made: sender now preserves true --batch-timeout-us 0 instead of coercing it to 1.
-No recommendation can be made from this pass.
+No measurement-backed default recommendation can be made from this pass.

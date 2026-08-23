@@ -1,4 +1,5 @@
 set -u
+cd /home/midhilesh/projects/task
 log=reports/ec2_pass/10_teardown.log
 mkdir -p reports/ec2_pass
 : >"$log"

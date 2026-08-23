@@ -1,8 +1,26 @@
-command: git status --short
- M reports/ec2_pass/acceptance_checks.log
+command: no comment/docstring marker grep
+exit_code=0
+command: bash -n infra/provision.sh infra/bootstrap.sh benchmark/run_remote.sh benchmark/sweep_rate.sh reports/ec2_pass/teardown_commands.sh reports/ec2_pass/verify_nonempty.sh
+exit_code=0
+command: python3 -m py_compile benchmark/summarize.py
+exit_code=0
+command: required log non-empty check
+OK reports/ec2_pass/00_manifest.log 2147 bytes
+OK reports/ec2_pass/01_provision.log 800 bytes
+OK reports/ec2_pass/02_bootstrap.log 319 bytes
+OK reports/ec2_pass/03_clock.log 552 bytes
+OK reports/ec2_pass/04_instrumentation.log 554 bytes
+OK reports/ec2_pass/05_baseline.log 377 bytes
+OK reports/ec2_pass/06_rate_sweep.log 344 bytes
+OK reports/ec2_pass/07_fec_verdict.log 368 bytes
+OK reports/ec2_pass/08_fanout.log 317 bytes
+OK reports/ec2_pass/09_batch_tuning.log 315 bytes
+OK reports/ec2_pass/10_teardown.log 700 bytes
+OK reports/ec2_pass/11_final_report.md 3847 bytes
 exit_code=0
 command: git log --oneline origin/main..main
-c9063de Record blocked EC2 measurement pass
+219df70 Record retried EC2 provisioning blocker
+4ffa8e0 Record blocked EC2 measurement pass
 e21493f Add EC2 measurement instrumentation and orchestration
 exit_code=0
 command: git reflog show origin/main
@@ -10,9 +28,26 @@ c8a2a85 refs/remotes/origin/main@{0}: update by push
 5dc3d3c refs/remotes/origin/main@{1}: update by push
 ebce760 refs/remotes/origin/main@{2}: update by push
 exit_code=0
-command: bash -n infra/provision.sh infra/bootstrap.sh benchmark/run_remote.sh benchmark/sweep_rate.sh
+command: no EC2 build/test result
+NOT_RUN: make -C harness clean && make -C harness && make -C harness test did not run because no EC2 instance launched.
 exit_code=0
-command: python3 -m py_compile benchmark/summarize.py
+command: no local latency measurement
+OK: no benchmark command was run locally in this pass; provisioning failed before EC2 hosts existed.
 exit_code=0
-command: literal comment marker grep
+command: teardown evidence
+command: aws ec2 describe-instances --region us-east-1 --filters Name=instance-state-name,Values=pending,running,stopping,stopped --query Reservations[].Instances[].InstanceId
+[]
+exit_code=0
+command: aws ec2 describe-volumes --region us-east-1 --filters Name=status,Values=available,in-use --query Volumes[].VolumeId
+[]
+exit_code=0
+command: aws ec2 describe-addresses --region us-east-1 --query Addresses[].AllocationId
+[]
+exit_code=0
+command: aws ec2 describe-placement-groups --region us-east-1 --query PlacementGroups[].GroupName
+[]
+exit_code=0
+command: aws ec2 describe-security-groups --region us-east-1 --filters Name=group-name,Values=spectral* --query SecurityGroups[].GroupId
+[]
+exit_code=0
 exit_code=0

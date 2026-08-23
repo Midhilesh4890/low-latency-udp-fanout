@@ -1,5 +1,5 @@
 NOT_RUN: remote rate sweep to saturation did not execute.
-Reason: Part A provisioning failed before any EC2 instance was created.
-Command requested by task: benchmark/sweep_rate.sh --remote --rates 100000,300000,500000,700000,900000,1200000 --repeats 3 --duration-seconds 5
-No summarize.py output exists for EC2 measurements.
-No local substitute was run.
+Reason: Part A provisioning failed before an EC2 instance was created.
+Requested command: benchmark/sweep_rate.sh --remote --rates 100000,300000,500000,700000,900000,1200000 --repeats 3 --duration-seconds 5
+No EC2 summarize.py output exists.
+Rejected alternative: local WSL2 rate sweep.

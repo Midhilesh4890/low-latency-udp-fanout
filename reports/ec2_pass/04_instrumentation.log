@@ -1,8 +1,9 @@
-Instrumentation changes made locally, not EC2-verified due provisioning failure:
-- harness/include/fec.h: added p99.9 and p99.99 recovery latency stats, raw recovery latency accessor, split recovery stats by close reason, and close_reason in FEC parity envelope.
-- harness/src/sender.cpp: passes FEC close reason to Encoder::close and preserves true --batch-timeout-us 0.
-- harness/src/receiver.cpp: added --fec-recovery-csv, fec_late_recovered_too_old, receiver_seq_jump_raw output, p99.9/p99.99 recovery output, and split recovery latency output.
-- harness/include/dedupe_window.h: added receiver_seq_jump_raw before any window slide.
-- benchmark/summarize.py: parses transport counters from sender.log and receiver.log into summary rows.
-Verification target runs with --test-drop-pct, --test-reorder-pct, and --test-seed: NOT_RUN.
-Reason: Part A provisioning failed before EC2 build/test/run. No local targeted run was executed.
+Required instrumentation exists from e21493f and was verified present before provisioning:
+- tools/clock_probe.cpp
+- harness/include/fec.h
+- harness/include/dedupe_window.h
+- harness/src/receiver.cpp
+- benchmark/summarize.py
+Counters covered: fec_recovery_p999_ns, fec_recovery_p9999_ns, fec_late_recovered_too_old, fec_closed_by_k, fec_closed_by_timeout, fec_closed_by_flush, receiver_seq_jump_raw.
+Targeted seeded injector verification: NOT_RUN.
+Reason: Part A provisioning failed before an EC2 instance was created. No local targeted run was executed.

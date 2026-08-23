@@ -28,7 +28,7 @@ aws ec2 authorize-security-group-ingress --region "$region" --group-id "$sg_id" 
 aws ec2 authorize-security-group-ingress --region "$region" --group-id "$sg_id" --ip-permissions "IpProtocol=udp,FromPort=0,ToPort=65535,UserIdGroupPairs=[{GroupId=$sg_id,Description=spectral-udp}]" >/dev/null 2>&1 || true
 aws ec2 authorize-security-group-ingress --region "$region" --group-id "$sg_id" --ip-permissions "IpProtocol=icmp,FromPort=-1,ToPort=-1,UserIdGroupPairs=[{GroupId=$sg_id,Description=spectral-icmp}]" >/dev/null 2>&1 || true
 
-aws ec2 create-placement-group --region "$region" --group-name "$placement_group" --strategy cluster >/dev/null 2>&1 || true
+aws ec2 describe-placement-groups --region "$region" --group-names "$placement_group" >/dev/null 2>&1 || aws ec2 create-placement-group --region "$region" --group-name "$placement_group" --strategy cluster
 
 user_data="$(mktemp)"
 printf '%s\n' '#!/bin/sh' 'shutdown -h +240' >"$user_data"

@@ -39,6 +39,8 @@ no_build="false"
 run_order_index=""
 p9999_grade="true"
 run_label=""
+source_revision="HEAD"
+startup_idle_ms="120000"
 
 usage() {
   printf '%s\n' "usage: bash benchmark/run_remote.sh --tx-host HOST --rx-hosts HOSTS --rx-privates IPS [--outdir DIR] [--rate N] [--count N] [--warmup N] [--fanout N]"
@@ -96,6 +98,8 @@ while [[ -n "${1+x}" ]]; do
     --p9999-grade) p9999_grade="true"; shift ;;
     --not-p9999-grade) p9999_grade="false"; shift ;;
     --run-label) require_value "$@"; run_label="$2"; shift 2 ;;
+    --source-revision) require_value "$@"; source_revision="$2"; shift 2 ;;
+    --startup-idle-ms) require_value "$@"; startup_idle_ms="$2"; shift 2 ;;
     --no-build) no_build="true"; shift ;;
     --help|-h) usage; exit 0 ;;
     *) printf '%s\n' "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -276,7 +280,7 @@ for ((i=0; i<fanout; ++i)); do
   rx_remote_dirs+=("$host|$rx_name|$remote_rx")
   out_shm="/fanout_out_$((i + 1))_$run_id"
   rx_cpu="${cpu_receiver_array[$i]}"
-  ssh_host "$host" "mkdir -p '$remote_rx' && rm -f /dev/shm/${out_shm#/} && cd $remote_repo && (nohup taskset -c '$rx_cpu' harness/bin/receiver --out-shm '$out_shm' --slots '$slots' --port '$port' --count '$total_count' --rcvbuf '$rcvbuf' --idle-ms 30000 --fec-recovery-csv '$remote_rx/fec_recovery.csv' < /dev/null >'$remote_rx/receiver.log' 2>&1 & echo \$! >'$remote_rx/receiver.pid')"
+  ssh_host "$host" "mkdir -p '$remote_rx' && rm -f /dev/shm/${out_shm#/} && cd $remote_repo && (nohup taskset -c '$rx_cpu' harness/bin/receiver --out-shm '$out_shm' --slots '$slots' --port '$port' --count '$total_count' --rcvbuf '$rcvbuf' --idle-ms '$startup_idle_ms' --fec-recovery-csv '$remote_rx/fec_recovery.csv' < /dev/null >'$remote_rx/receiver.log' 2>&1 & echo \$! >'$remote_rx/receiver.pid')"
   register_pid "$host" "$remote_rx/receiver.pid" "$rx_name receiver"
   wait_remote "$host" 10 "$rx_name receiver pid" "[[ -s '$remote_rx/receiver.pid' ]]"
   wait_remote "$host" 10 "$rx_name receiver alive" "kill -0 \$(cat '$remote_rx/receiver.pid') 2>/dev/null"
@@ -301,7 +305,7 @@ for ((i=0; i<fanout; ++i)); do
     csv_args="--csv '/dev/shm/${run_id}_${rx_name}_latency.bin'"
     ssh_host "$host" "rm -f '/dev/shm/${run_id}_${rx_name}_latency.bin'"
   fi
-  ssh_host "$host" "cd $remote_repo && (nohup taskset -c '$consumer_cpu' harness/bin/consumer --shm '$out_shm' --slots '$slots' --count '$count' --skip '$warmup' --idle-ms 30000 $csv_args < /dev/null >'$remote_rx/consumer.log' 2>&1 & echo \$! >'$remote_rx/consumer.pid')"
+  ssh_host "$host" "cd $remote_repo && (nohup taskset -c '$consumer_cpu' harness/bin/consumer --shm '$out_shm' --slots '$slots' --count '$count' --skip '$warmup' --idle-ms '$startup_idle_ms' $csv_args < /dev/null >'$remote_rx/consumer.log' 2>&1 & echo \$! >'$remote_rx/consumer.pid')"
   register_pid "$host" "$remote_rx/consumer.pid" "$rx_name consumer"
   wait_remote "$host" 10 "$rx_name consumer pid" "[[ -s '$remote_rx/consumer.pid' ]]"
   wait_remote "$host" 10 "$rx_name consumer alive" "kill -0 \$(cat '$remote_rx/consumer.pid') 2>/dev/null"
@@ -320,7 +324,7 @@ for value in "${sender_args[@]}"; do
   sender_args_text+=" $(quote_one "$value")"
 done
 
-ssh_host "$tx_host" "mkdir -p '$remote_base/tx' && rm -f /dev/shm/fanout_in_$run_id && cd $remote_repo && (nohup taskset -c '$cpu_producer' harness/bin/producer --shm '/fanout_in_$run_id' --slots '$slots' --count '$total_count' --rate '$rate' --type '$message_type' < /dev/null >'$remote_base/tx/producer.log' 2>&1 & echo \$! >'$remote_base/tx/producer.pid') && for i in \$(seq 1 10000); do [[ -e '/dev/shm/fanout_in_$run_id' ]] && break; sleep 0.001; done && [[ -e '/dev/shm/fanout_in_$run_id' ]] && (nohup taskset -c '$cpu_sender' harness/bin/sender --in-shm '/fanout_in_$run_id' --slots '$slots' --count '$total_count' --sndbuf '$sndbuf' --fec-k '$fec_k' --fec-timeout-us '$fec_timeout_us' --batch-size '$batch_size' --batch-timeout-us '$batch_timeout_us' $sender_args_text < /dev/null >'$remote_base/tx/sender.log' 2>&1 & echo \$! >'$remote_base/tx/sender.pid')"
+ssh_host "$tx_host" "mkdir -p '$remote_base/tx' && rm -f /dev/shm/fanout_in_$run_id && cd $remote_repo && (nohup taskset -c '$cpu_producer' harness/bin/producer --shm '/fanout_in_$run_id' --slots '$slots' --count '$total_count' --rate '$rate' --type '$message_type' < /dev/null >'$remote_base/tx/producer.log' 2>&1 & echo \$! >'$remote_base/tx/producer.pid') && for i in \$(seq 1 10000); do [[ -e '/dev/shm/fanout_in_$run_id' ]] && break; sleep 0.001; done && [[ -e '/dev/shm/fanout_in_$run_id' ]] && (nohup taskset -c '$cpu_sender' harness/bin/sender --in-shm '/fanout_in_$run_id' --slots '$slots' --count '$total_count' --idle-ms '$startup_idle_ms' --sndbuf '$sndbuf' --fec-k '$fec_k' --fec-timeout-us '$fec_timeout_us' --batch-size '$batch_size' --batch-timeout-us '$batch_timeout_us' $sender_args_text < /dev/null >'$remote_base/tx/sender.log' 2>&1 & echo \$! >'$remote_base/tx/sender.pid')"
 register_pid "$tx_host" "$remote_base/tx/producer.pid" "tx producer"
 register_pid "$tx_host" "$remote_base/tx/sender.pid" "tx sender"
 wait_remote "$tx_host" 10 "producer pid" "[[ -s '$remote_base/tx/producer.pid' ]]"
@@ -365,7 +369,7 @@ for entry in "${rx_remote_dirs[@]}"; do
 done
 
 end_ns="$(date +%s%N)"
-export RUN_RATE="$rate" RUN_COUNT="$count" RUN_WARMUP="$warmup" RUN_SLOTS="$slots" RUN_TYPE="$message_type" RUN_PORT="$base_port" RUN_FANOUT="$fanout" RUN_SNDBUF="$sndbuf" RUN_RCVBUF="$rcvbuf" RUN_FEC_K="$fec_k" RUN_FEC_TIMEOUT_US="$fec_timeout_us" RUN_BATCH_SIZE="$batch_size" RUN_BATCH_TIMEOUT_US="$batch_timeout_us" RUN_TX_HOST="$tx_host" RUN_RX_HOSTS="$rx_hosts" RUN_INSTANCE_TYPE="$instance_type" RUN_AZ="$az" RUN_PLACEMENT_GROUP_TYPE="$placement_group_type" RUN_CLOCK_METHOD="$clock_method" RUN_CLOCK_RESIDUAL_BOUND_NS="$clock_residual_bound_ns" RUN_NIC_DRIVER_VERSION="$nic_driver_version" RUN_ISOLATED_CORES="$isolated_cores" RUN_MTU="$mtu" RUN_OUTDIR="$outdir" RUN_DURATION_NS="$((end_ns - start_ns))" RUN_CPU_PRODUCER="$cpu_producer" RUN_CPU_SENDER="$cpu_sender" RUN_CPU_RECEIVER="$cpu_receiver" RUN_CPU_CONSUMER="$cpu_consumer" RUN_CPU_RECEIVERS="$cpu_receivers" RUN_CPU_CONSUMERS="$cpu_consumers" RUN_ORDER_INDEX="$run_order_index" RUN_P9999_GRADE="$p9999_grade" RUN_LABEL="$run_label" RUN_LATENCY_OUTPUT="$latency_output"
+export RUN_RATE="$rate" RUN_COUNT="$count" RUN_WARMUP="$warmup" RUN_SLOTS="$slots" RUN_TYPE="$message_type" RUN_PORT="$base_port" RUN_FANOUT="$fanout" RUN_SNDBUF="$sndbuf" RUN_RCVBUF="$rcvbuf" RUN_FEC_K="$fec_k" RUN_FEC_TIMEOUT_US="$fec_timeout_us" RUN_BATCH_SIZE="$batch_size" RUN_BATCH_TIMEOUT_US="$batch_timeout_us" RUN_TX_HOST="$tx_host" RUN_RX_HOSTS="$rx_hosts" RUN_INSTANCE_TYPE="$instance_type" RUN_AZ="$az" RUN_PLACEMENT_GROUP_TYPE="$placement_group_type" RUN_CLOCK_METHOD="$clock_method" RUN_CLOCK_RESIDUAL_BOUND_NS="$clock_residual_bound_ns" RUN_NIC_DRIVER_VERSION="$nic_driver_version" RUN_ISOLATED_CORES="$isolated_cores" RUN_MTU="$mtu" RUN_OUTDIR="$outdir" RUN_DURATION_NS="$((end_ns - start_ns))" RUN_CPU_PRODUCER="$cpu_producer" RUN_CPU_SENDER="$cpu_sender" RUN_CPU_RECEIVER="$cpu_receiver" RUN_CPU_CONSUMER="$cpu_consumer" RUN_CPU_RECEIVERS="$cpu_receivers" RUN_CPU_CONSUMERS="$cpu_consumers" RUN_ORDER_INDEX="$run_order_index" RUN_P9999_GRADE="$p9999_grade" RUN_LABEL="$run_label" RUN_LATENCY_OUTPUT="$latency_output" RUN_SOURCE_REVISION="$source_revision" RUN_STARTUP_IDLE_MS="$startup_idle_ms"
 python3 - "$outdir/run.json" <<'PY'
 import json
 import os
@@ -403,10 +407,12 @@ data = {
         "batch_size": integer("RUN_BATCH_SIZE"),
         "batch_timeout_us": integer("RUN_BATCH_TIMEOUT_US"),
         "latency_output": os.environ["RUN_LATENCY_OUTPUT"],
+        "startup_idle_ms": integer("RUN_STARTUP_IDLE_MS"),
         "p9999_grade": os.environ["RUN_P9999_GRADE"] == "true",
         "outdir": os.environ["RUN_OUTDIR"]
     },
     "sample_count": integer("RUN_COUNT"),
+    "source_revision": os.environ["RUN_SOURCE_REVISION"],
     "run_order_index": optional_integer("RUN_ORDER_INDEX"),
     "p9999_grade": os.environ["RUN_P9999_GRADE"] == "true",
     "run_label": os.environ["RUN_LABEL"],

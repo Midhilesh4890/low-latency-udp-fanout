@@ -12,6 +12,7 @@ harness_repo="/home/ubuntu/task"
 transport_repo="/home/ubuntu/task"
 transport_mode="current"
 source_revision="HEAD"
+harness_revision="HEAD"
 outdir=""
 rate="100000"
 count="3000000"
@@ -63,6 +64,7 @@ while [[ -n "${1+x}" ]]; do
     --transport-repo) need "$@"; transport_repo="$2"; shift 2 ;;
     --transport-mode) need "$@"; transport_mode="$2"; shift 2 ;;
     --source-revision) need "$@"; source_revision="$2"; shift 2 ;;
+    --harness-revision) need "$@"; harness_revision="$2"; shift 2 ;;
     --outdir) need "$@"; outdir="$2"; shift 2 ;;
     --rate) need "$@"; rate="$2"; shift 2 ;;
     --count) need "$@"; count="$2"; shift 2 ;;
@@ -209,15 +211,15 @@ rx_text="$common_text"
 for item in "ROLE=rx" "RUN_DIR=$remote_base/rx" "PEER_PRIVATE=$tx_private" "CPU_FORWARD_RECEIVER=$cpu_forward_receiver" "CPU_RELAY=$cpu_relay" "CPU_RETURN_SENDER=$cpu_return_sender"; do
   rx_text+=" $(quote_one "$item")"
 done
-remote "$rx_host" "cd '$harness_repo' && nohup env $rx_text bash benchmark/run_pipeline_host.sh </dev/null >'$remote_base/rx/host.log' 2>&1 & echo \$! >'$remote_base/rx/host.pid'"
-wait_for "$rx_host" 10 "forward receiver" "ss -H -lun | grep -q ':$forward_port'"
+remote "$rx_host" "cd '$harness_repo' && setsid -f env $rx_text bash benchmark/run_pipeline_host.sh </dev/null >'$remote_base/rx/host.log' 2>&1"
+wait_for "$rx_host" 10 "forward receiver" "grep -q '^receiver:' '$remote_base/rx/forward_receiver.log'"
 
 tx_text="$common_text"
 for item in "ROLE=tx" "RUN_DIR=$remote_base/tx" "PEER_PRIVATE=$rx_private" "CPU_PRODUCER=$cpu_producer" "CPU_FORWARD_SENDER=$cpu_forward_sender" "CPU_RETURN_RECEIVER=$cpu_return_receiver" "CPU_CONSUMER=$cpu_consumer"; do
   tx_text+=" $(quote_one "$item")"
 done
-remote "$tx_host" "cd '$harness_repo' && nohup env $tx_text bash benchmark/run_pipeline_host.sh </dev/null >'$remote_base/tx/host.log' 2>&1 & echo \$! >'$remote_base/tx/host.pid'"
-wait_for "$tx_host" 10 "return receiver" "ss -H -lun | grep -q ':$return_port'"
+remote "$tx_host" "cd '$harness_repo' && setsid -f env $tx_text bash benchmark/run_pipeline_host.sh </dev/null >'$remote_base/tx/host.log' 2>&1"
+wait_for "$tx_host" 10 "return receiver" "grep -q '^receiver:' '$remote_base/tx/return_receiver.log'"
 
 status=0
 wait_for "$tx_host" "$completion_seconds" "TX pipeline completion" "[[ -s '$remote_base/tx/done' ]]" || status=1
@@ -241,11 +243,11 @@ grep -q "sent=$total_count .*lapped=0" "$outdir/rx/return_sender.log"
 grep -q "published=$total_count" "$outdir/tx/return_receiver.log"
 
 end_ns="$(date +%s%N)"
-python3 - "$outdir/run.json" "$rate" "$count" "$warmup" "$slots" "$forward_port" "$return_port" "$batch_size" "$batch_timeout_us" "$fec_k" "$fec_timeout_us" "$source_revision" "$transport_mode" "$latency_output" "$tx_host" "$rx_host" "$tx_private" "$rx_private" "$((end_ns - start_ns))" <<'PY'
+python3 - "$outdir/run.json" "$rate" "$count" "$warmup" "$slots" "$forward_port" "$return_port" "$batch_size" "$batch_timeout_us" "$fec_k" "$fec_timeout_us" "$source_revision" "$harness_revision" "$transport_mode" "$latency_output" "$tx_host" "$rx_host" "$tx_private" "$rx_private" "$((end_ns - start_ns))" <<'PY'
 import json
 import sys
 
-path, rate, count, warmup, slots, forward_port, return_port, batch_size, batch_timeout_us, fec_k, fec_timeout_us, revision, transport_mode, latency_output, tx_host, rx_host, tx_private, rx_private, duration_ns = sys.argv[1:]
+path, rate, count, warmup, slots, forward_port, return_port, batch_size, batch_timeout_us, fec_k, fec_timeout_us, revision, harness_revision, transport_mode, latency_output, tx_host, rx_host, tx_private, rx_private, duration_ns = sys.argv[1:]
 data = {
     "clock_sync": {"method": "same_clock_symmetric_pipeline_rtt_half", "scale": 0.5},
     "estimator": {
@@ -270,6 +272,7 @@ data = {
     "rx_host": rx_host,
     "rx_private": rx_private,
     "sample_count": int(count),
+    "harness_revision": harness_revision,
     "source_revision": revision,
     "topology": "producer->sender->receiver->relay->sender->receiver->consumer",
     "transport_mode": transport_mode,

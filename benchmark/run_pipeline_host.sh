@@ -62,7 +62,7 @@ wait_shm() {
   return 1
 }
 
-sender_args=(--slots "$SLOTS" --count "$TOTAL_COUNT" --sndbuf "$SNDBUF" --batch-size "$BATCH_SIZE" --batch-timeout-us "$BATCH_TIMEOUT_US")
+sender_args=(--slots "$SLOTS" --count "$TOTAL_COUNT" --idle-ms 30000 --sndbuf "$SNDBUF" --batch-size "$BATCH_SIZE" --batch-timeout-us "$BATCH_TIMEOUT_US")
 receiver_args=(--slots "$SLOTS" --count "$TOTAL_COUNT" --rcvbuf "$RCVBUF" --batch-size "$BATCH_SIZE" --idle-ms 30000)
 if [[ "$TRANSPORT_MODE" == "current" ]]; then
   sender_args+=(--fec-k "$FEC_K" --fec-timeout-us "$FEC_TIMEOUT_US")

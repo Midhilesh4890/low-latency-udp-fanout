@@ -1,0 +1,10 @@
+requested_at=2026-08-24T10:38:24Z
+verified_at=2026-08-24T10:39:49Z
+region=us-east-1
+instance_i-017da3a44f14eb91e=terminated
+instance_i-00cbf1d0b9412f880=terminated
+volumes_with_session_tag=[]
+addresses_for_session_instances=[]
+network_interfaces_for_security_group=[]
+security_group_sg-0a21fdf1b4a9481e4=InvalidGroup.NotFound
+placement_group_spectral-ec2-pass-cluster=InvalidPlacementGroup.Unknown

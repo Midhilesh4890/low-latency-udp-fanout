@@ -1,0 +1,15 @@
+region=us-east-1
+instance_type=m8a.2xlarge
+catalog_rate_usd_per_instance_hour=0.48688
+catalog_effective_date=2026-08-01
+tx_launch=2026-08-24T09:23:53Z
+rx_launch=2026-08-24T09:28:46Z
+termination=2026-08-24T10:38:24Z
+tx_seconds=4471
+rx_seconds=4178
+aggregate_instance_hours=2.4025
+compute_usd=1.1697292
+public_ipv4_usd_estimate=0.0120125
+gp3_usd_estimate=0.0021
+total_usd_estimate=1.184
+failed_capacity_launches_billable_resources=0

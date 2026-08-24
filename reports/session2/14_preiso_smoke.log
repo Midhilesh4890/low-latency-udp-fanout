@@ -1,0 +1,66 @@
+Script started on 2026-08-24 09:50:12+00:00 [COMMAND="bash benchmark/run_rtt_remote.sh --tx-host 3.87.156.180 --rx-host 54.91.135.23 --rx-private 172.31.40.167 --ssh-key /home/midhilesh/.ssh/spectral-key.pem --outdir benchmark/results/session2_preiso_smoke --rate 100000 --count 300000 --warmup 20000 --port 9300 --tx-isolated 1,2 --rx-isolated 1,2 --source-revision HEAD --latency-output none" <not executed on terminal>]
+make: Entering directory '/home/ubuntu/task/harness'
+rm -rf bin
+mkdir -p bin
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/producer.cpp -o bin/producer -lrt -lpthread
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/consumer.cpp -o bin/consumer -lrt -lpthread
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/sender.cpp -o bin/sender -lrt -lpthread
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/receiver.cpp -o bin/receiver -lrt -lpthread
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude test/test_harness.cpp -o bin/test_harness -lrt -lpthread
+./bin/test_harness
+test_metrics_basic OK
+test_metrics_drops OK
+test_ring_roundtrip OK
+test_ring_lapping OK
+test_frame_roundtrip_preserves_header OK
+test_dedupe_in_order OK
+test_dedupe_swapped_adjacent OK
+test_dedupe_delayed_w_minus_one OK
+test_dedupe_delayed_w_plus_one_too_old OK
+test_dedupe_duplicate OK
+test_dedupe_gap_lost_once OK
+test_dedupe_base_advances_full_window OK
+test_fec_disabled_raw_stream OK
+test_fec_single_drop_each_index OK
+test_fec_two_drops_unrecoverable OK
+test_fec_drop_parity OK
+test_fec_partial_generation_recovers OK
+test_fec_out_of_order_recovers OK
+ALL TESTS PASSED
+make: Leaving directory '/home/ubuntu/task/harness'
+make: Entering directory '/home/ubuntu/task/harness'
+rm -rf bin
+mkdir -p bin
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/producer.cpp -o bin/producer -lrt -lpthread
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/consumer.cpp -o bin/consumer -lrt -lpthread
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/sender.cpp -o bin/sender -lrt -lpthread
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/receiver.cpp -o bin/receiver -lrt -lpthread
+g++ -std=c++17 -O2 -Wall -Wextra -Iinclude test/test_harness.cpp -o bin/test_harness -lrt -lpthread
+./bin/test_harness
+test_metrics_basic OK
+test_metrics_drops OK
+test_ring_roundtrip OK
+test_ring_lapping OK
+test_frame_roundtrip_preserves_header OK
+test_dedupe_in_order OK
+test_dedupe_swapped_adjacent OK
+test_dedupe_delayed_w_minus_one OK
+test_dedupe_delayed_w_plus_one_too_old OK
+test_dedupe_duplicate OK
+test_dedupe_gap_lost_once OK
+test_dedupe_base_advances_full_window OK
+test_fec_disabled_raw_stream OK
+test_fec_single_drop_each_index OK
+test_fec_two_drops_unrecoverable OK
+test_fec_drop_parity OK
+test_fec_partial_generation_recovers OK
+test_fec_out_of_order_recovers OK
+ALL TESTS PASSED
+make: Leaving directory '/home/ubuntu/task/harness'
+preflight ok: rtt-tx cores=1 2 3 isolated_cores=1,2 smt=notsupported
+preflight ok: rtt-rx cores=1 isolated_cores=1,2 smt=notsupported
+confirmed: echo receiver
+confirmed: producer shm
+confirmation failed: echo output shm
+
+Script done on 2026-08-24 09:51:11+00:00 [COMMAND_EXIT_CODE="1"]

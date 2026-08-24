@@ -1,0 +1,50 @@
+Script started on 2026-08-24 09:27:46+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes -o StrictHostKeyChecking=accept-new ubuntu@3.87.156.180 sudo apt-get update" <not executed on terminal>]
+Warning: Permanently added '3.87.156.180' (ED25519) to the list of known hosts.
+Hit:1 http://us-east-1.ec2.archive.ubuntu.com/ubuntu noble InRelease
+Hit:2 http://us-east-1.ec2.archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:3 http://us-east-1.ec2.archive.ubuntu.com/ubuntu noble-backports InRelease
+Hit:4 http://security.ubuntu.com/ubuntu noble-security InRelease
+Reading package lists...
+
+Script done on 2026-08-24 09:27:49+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 09:27:49+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes ubuntu@3.87.156.180 sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y ethtool" <not executed on terminal>]
+Reading package lists...
+Building dependency tree...
+Reading state information...
+ethtool is already the newest version (1:6.7-1build1).
+0 upgraded, 0 newly installed, 0 to remove and 63 not upgraded.
+
+Script done on 2026-08-24 09:27:51+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 09:27:52+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes ubuntu@3.87.156.180 ip -o link show" <not executed on terminal>]
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: enp39s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9001 qdisc mq state UP mode DEFAULT group default qlen 1000\    link/ether 0e:88:91:80:69:99 brd ff:ff:ff:ff:ff:ff
+
+Script done on 2026-08-24 09:27:54+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 09:27:54+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes ubuntu@3.87.156.180 lscpu -e" <not executed on terminal>]
+CPU NODE SOCKET CORE L1d:L1i:L2:L3 ONLINE
+  0    0      0    0 0:0:0:0          yes
+  1    0      0    1 1:1:1:0          yes
+  2    0      0    2 2:2:2:0          yes
+  3    0      0    3 3:3:3:0          yes
+
+Script done on 2026-08-24 09:27:57+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 09:27:57+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes ubuntu@3.87.156.180 cat /sys/devices/system/cpu/smt/control" <not executed on terminal>]
+notsupported
+
+Script done on 2026-08-24 09:27:59+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 09:28:00+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes ubuntu@3.87.156.180 ethtool -T enp39s0" <not executed on terminal>]
+Time stamping parameters for enp39s0:
+Capabilities:
+	software-transmit
+	software-receive
+	software-system-clock
+PTP Hardware Clock: none
+Hardware Transmit Timestamp Modes: none
+Hardware Receive Filter Modes: none
+
+Script done on 2026-08-24 09:28:05+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 09:28:05+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes ubuntu@3.87.156.180 ls -la /dev/ptp*" <not executed on terminal>]
+ls: cannot access '/dev/ptp0': No such file or directory
+ls: cannot access '/dev/ptp_hyperv': No such file or directory
+
+Script done on 2026-08-24 09:28:07+00:00 [COMMAND_EXIT_CODE="2"]

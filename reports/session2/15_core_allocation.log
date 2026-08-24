@@ -1,0 +1,45 @@
+Script started on 2026-08-24 10:08:30+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes -o UserKnownHostsFile=/tmp/session2_known_hosts ubuntu@3.87.156.180 ping -q -c 100 -s 32 172.31.40.167" <not executed on terminal>]
+PING 172.31.40.167 (172.31.40.167) 32(60) bytes of data.
+
+--- 172.31.40.167 ping statistics ---
+100 packets transmitted, 100 received, 0% packet loss, time 101389ms
+rtt min/avg/max/mdev = 0.094/0.107/0.128/0.005 ms
+
+Script done on 2026-08-24 10:10:14+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 10:10:14+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes -o UserKnownHostsFile=/tmp/session2_known_hosts ubuntu@3.87.156.180 ping -q -c 100 -s 576 172.31.40.167" <not executed on terminal>]
+PING 172.31.40.167 (172.31.40.167) 576(604) bytes of data.
+
+Script done on 2026-08-24 10:10:29+00:00 [COMMAND_EXIT_CODE="255"]
+Script started on 2026-08-24 10:11:48+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes -o UserKnownHostsFile=/tmp/session2_known_hosts ubuntu@3.87.156.180 ping -q -i 0.01 -c 100 -s 32 172.31.40.167" <not executed on terminal>]
+PING 172.31.40.167 (172.31.40.167) 32(60) bytes of data.
+
+--- 172.31.40.167 ping statistics ---
+100 packets transmitted, 100 received, 0% packet loss, time 1089ms
+rtt min/avg/max/mdev = 0.057/0.061/0.147/0.008 ms
+
+Script done on 2026-08-24 10:11:55+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 10:11:55+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes -o UserKnownHostsFile=/tmp/session2_known_hosts ubuntu@3.87.156.180 ping -q -i 0.01 -c 100 -s 576 172.31.40.167" <not executed on terminal>]
+PING 172.31.40.167 (172.31.40.167) 576(604) bytes of data.
+
+--- 172.31.40.167 ping statistics ---
+100 packets transmitted, 100 received, 0% packet loss, time 1088ms
+rtt min/avg/max/mdev = 0.058/0.062/0.092/0.004 ms
+
+Script done on 2026-08-24 10:11:59+00:00 [COMMAND_EXIT_CODE="0"]
+Script started on 2026-08-24 10:11:59+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes -o UserKnownHostsFile=/tmp/session2_known_hosts ubuntu@3.87.156.180 'cat /proc/cmdline; chronyc tracking'" <not executed on terminal>]
+BOOT_IMAGE=/vmlinuz-6.17.0-1019-aws root=PARTUUID=b6646204-dd62-48b5-921b-feb019fb9c2c ro nosmt isolcpus=1,2,3 nohz_full=1,2,3 rcu_nocbs=1,2,3 console=tty1 console=ttyS0 nvme_core.io_timeout=4294967295 panic=-1
+Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 2
+Ref time (UTC)  : Mon Aug 24 10:12:01 2026
+System time     : 0.000000670 seconds fast of NTP time
+Last offset     : +0.000000323 seconds
+RMS offset      : 0.000000560 seconds
+Frequency       : 6.585 ppm slow
+Residual freq   : +0.003 ppm
+Skew            : 0.162 ppm
+Root delay      : 0.000090177 seconds
+Root dispersion : 0.000022924 seconds
+Update interval : 1.0 seconds
+Leap status     : Normal
+
+Script done on 2026-08-24 10:12:02+00:00 [COMMAND_EXIT_CODE="0"]

@@ -1,0 +1,38 @@
+2026/08/24 09:50:06 [25651] building file list
+2026/08/24 09:50:06 [25651] .d..t...... ./
+2026/08/24 09:50:06 [25651] .d..t...... benchmark/
+2026/08/24 09:50:06 [25651] <f+++++++++ benchmark/run_rtt_remote.sh
+2026/08/24 09:50:06 [25651] .d..t...... harness/
+2026/08/24 09:50:06 [25651] .d..tp..... harness/bin/
+2026/08/24 09:50:06 [25651] <f.stp..... harness/bin/consumer
+2026/08/24 09:50:06 [25651] <f.stp..... harness/bin/producer
+2026/08/24 09:50:06 [25651] <f.stp..... harness/bin/receiver
+2026/08/24 09:50:06 [25651] <f.stp..... harness/bin/sender
+2026/08/24 09:50:06 [25651] <f..tp..... harness/bin/test_harness
+2026/08/24 09:50:06 [25651] <f.st...... harness/src/consumer.cpp
+2026/08/24 09:50:06 [25651] <f.st...... harness/src/producer.cpp
+2026/08/24 09:50:06 [25651] <f.st...... harness/src/receiver.cpp
+2026/08/24 09:50:06 [25651] <f.st...... harness/src/sender.cpp
+2026/08/24 09:50:06 [25651] .d..t...... harness/test/
+2026/08/24 09:50:06 [25651] <f+++++++++ harness/test/test_rtt_mode.sh
+2026/08/24 09:50:06 [25651] .d..t...... tools/
+2026/08/24 09:50:07 [25651] sent 130902 bytes  received 2929 bytes  total size 84670452
+2026/08/24 09:50:10 [25659] building file list
+2026/08/24 09:50:10 [25659] .d..t...... ./
+2026/08/24 09:50:11 [25659] .d..t...... benchmark/
+2026/08/24 09:50:11 [25659] <f+++++++++ benchmark/run_rtt_remote.sh
+2026/08/24 09:50:11 [25659] .d..t...... harness/
+2026/08/24 09:50:11 [25659] .d..tp..... harness/bin/
+2026/08/24 09:50:11 [25659] <f.stp..... harness/bin/consumer
+2026/08/24 09:50:11 [25659] <f.stp..... harness/bin/producer
+2026/08/24 09:50:11 [25659] <f.stp..... harness/bin/receiver
+2026/08/24 09:50:11 [25659] <f.stp..... harness/bin/sender
+2026/08/24 09:50:11 [25659] <f..tp..... harness/bin/test_harness
+2026/08/24 09:50:11 [25659] <f.st...... harness/src/consumer.cpp
+2026/08/24 09:50:11 [25659] <f.st...... harness/src/producer.cpp
+2026/08/24 09:50:11 [25659] <f.st...... harness/src/receiver.cpp
+2026/08/24 09:50:11 [25659] <f.st...... harness/src/sender.cpp
+2026/08/24 09:50:11 [25659] .d..t...... harness/test/
+2026/08/24 09:50:11 [25659] <f+++++++++ harness/test/test_rtt_mode.sh
+2026/08/24 09:50:11 [25659] .d..t...... tools/
+2026/08/24 09:50:12 [25659] sent 130902 bytes  received 2929 bytes  total size 84670452

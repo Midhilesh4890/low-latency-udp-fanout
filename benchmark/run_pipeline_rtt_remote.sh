@@ -36,9 +36,11 @@ batch_size="32"
 batch_timeout_us="5"
 fec_k="0"
 fec_timeout_us="200"
+test_drop_pct="0"
 latency_output="none"
 start_delay_ms="1000"
 no_build="false"
+allow_loss="false"
 
 need() {
   if [[ -z "${2+x}" ]]; then
@@ -88,9 +90,11 @@ while [[ -n "${1+x}" ]]; do
     --batch-timeout-us) need "$@"; batch_timeout_us="$2"; shift 2 ;;
     --fec-k) need "$@"; fec_k="$2"; shift 2 ;;
     --fec-timeout-us) need "$@"; fec_timeout_us="$2"; shift 2 ;;
+    --test-drop-pct) need "$@"; test_drop_pct="$2"; shift 2 ;;
     --latency-output) need "$@"; latency_output="$2"; shift 2 ;;
     --start-delay-ms) need "$@"; start_delay_ms="$2"; shift 2 ;;
     --no-build) no_build="true"; shift ;;
+    --allow-loss) allow_loss="true"; shift ;;
     *) printf '%s\n' "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -119,7 +123,7 @@ run_id="pipeline_rtt_$(date -u +%Y%m%dT%H%M%SZ)_$$"
 remote_base="/tmp/$run_id"
 total_count="$((count + warmup))"
 stream_seconds="$(((total_count + rate - 1) / rate))"
-completion_seconds="$((stream_seconds + 60))"
+completion_seconds="$((stream_seconds + 75))"
 start_ns="$(date +%s%N)"
 ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts" -o ServerAliveInterval=10)
 if [[ -n "$ssh_key" ]]; then
@@ -199,6 +203,7 @@ common_env=(
   "BATCH_TIMEOUT_US=$batch_timeout_us"
   "FEC_K=$fec_k"
   "FEC_TIMEOUT_US=$fec_timeout_us"
+  "TEST_DROP_PCT=$test_drop_pct"
   "START_DELAY_MS=$start_delay_ms"
   "LATENCY_OUTPUT=$latency_output"
 )
@@ -234,20 +239,28 @@ if (( status != 0 )); then
   exit "$status"
 fi
 
-grep -q "received     : $count" "$outdir/tx/consumer.log"
-grep -q "dropped      : 0" "$outdir/tx/consumer.log"
-grep -q "sent=$total_count .*lapped=0" "$outdir/tx/forward_sender.log"
-grep -q "published=$total_count" "$outdir/rx/forward_receiver.log"
-grep -q "forwarded=$total_count lapped=0" "$outdir/rx/relay.log"
-grep -q "sent=$total_count .*lapped=0" "$outdir/rx/return_sender.log"
-grep -q "published=$total_count" "$outdir/tx/return_receiver.log"
+if [[ "$allow_loss" == "false" ]]; then
+  grep -q "received     : $count" "$outdir/tx/consumer.log"
+  grep -q "dropped      : 0" "$outdir/tx/consumer.log"
+  grep -q "sent=$total_count .*lapped=0" "$outdir/tx/forward_sender.log"
+  grep -q "published=$total_count" "$outdir/rx/forward_receiver.log"
+  grep -q "forwarded=$total_count lapped=0" "$outdir/rx/relay.log"
+  grep -q "sent=$total_count .*lapped=0" "$outdir/rx/return_sender.log"
+  grep -q "published=$total_count" "$outdir/tx/return_receiver.log"
+else
+  grep -q "lapped=0" "$outdir/tx/forward_sender.log"
+  grep -q "lapped=0" "$outdir/rx/relay.log"
+  grep -q "lapped=0" "$outdir/rx/return_sender.log"
+  grep -q "rejected=0" "$outdir/rx/forward_receiver.log"
+  grep -q "rejected=0" "$outdir/tx/return_receiver.log"
+fi
 
 end_ns="$(date +%s%N)"
-python3 - "$outdir/run.json" "$rate" "$count" "$warmup" "$slots" "$forward_port" "$return_port" "$batch_size" "$batch_timeout_us" "$fec_k" "$fec_timeout_us" "$source_revision" "$harness_revision" "$transport_mode" "$latency_output" "$tx_host" "$rx_host" "$tx_private" "$rx_private" "$((end_ns - start_ns))" <<'PY'
+python3 - "$outdir/run.json" "$rate" "$count" "$warmup" "$slots" "$forward_port" "$return_port" "$batch_size" "$batch_timeout_us" "$fec_k" "$fec_timeout_us" "$test_drop_pct" "$allow_loss" "$source_revision" "$harness_revision" "$transport_mode" "$latency_output" "$tx_host" "$rx_host" "$tx_private" "$rx_private" "$((end_ns - start_ns))" <<'PY'
 import json
 import sys
 
-path, rate, count, warmup, slots, forward_port, return_port, batch_size, batch_timeout_us, fec_k, fec_timeout_us, revision, harness_revision, transport_mode, latency_output, tx_host, rx_host, tx_private, rx_private, duration_ns = sys.argv[1:]
+path, rate, count, warmup, slots, forward_port, return_port, batch_size, batch_timeout_us, fec_k, fec_timeout_us, test_drop_pct, allow_loss, revision, harness_revision, transport_mode, latency_output, tx_host, rx_host, tx_private, rx_private, duration_ns = sys.argv[1:]
 data = {
     "clock_sync": {"method": "same_clock_symmetric_pipeline_rtt_half", "scale": 0.5},
     "estimator": {
@@ -262,6 +275,9 @@ data = {
         "count": int(count),
         "fec_k": int(fec_k),
         "fec_timeout_us": int(fec_timeout_us),
+        "test_drop_pct": float(test_drop_pct),
+        "allow_loss": allow_loss == "true",
+        "impairment_method": "sender_test_drop" if float(test_drop_pct) > 0 else "none",
         "forward_port": int(forward_port),
         "latency_output": latency_output,
         "rate": int(rate),

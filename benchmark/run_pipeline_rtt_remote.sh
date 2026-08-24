@@ -148,8 +148,8 @@ copy_from() {
 }
 
 cleanup() {
-  remote "$tx_host" "pkill -f '$run_id' 2>/dev/null || true; rm -f /dev/shm/*'$run_id'*" >/dev/null 2>&1 || true
-  remote "$rx_host" "pkill -f '$run_id' 2>/dev/null || true; rm -f /dev/shm/*'$run_id'*" >/dev/null 2>&1 || true
+  remote "$tx_host" "pkill -f '$run_id' 2>/dev/null || true; rm -f /dev/shm/*'$run_id'*; rm -rf -- '$remote_base'" >/dev/null 2>&1 || true
+  remote "$rx_host" "pkill -f '$run_id' 2>/dev/null || true; rm -f /dev/shm/*'$run_id'*; rm -rf -- '$remote_base'" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
 

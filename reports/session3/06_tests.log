@@ -1,0 +1,26 @@
+make -C harness test
+test_metrics_basic OK
+test_metrics_drops OK
+test_ring_roundtrip OK
+test_ring_lapping OK
+test_frame_roundtrip_preserves_header OK
+test_dedupe_in_order OK
+test_dedupe_swapped_adjacent OK
+test_dedupe_delayed_w_minus_one OK
+test_dedupe_delayed_w_plus_one_too_old OK
+test_dedupe_duplicate OK
+test_dedupe_gap_lost_once OK
+test_dedupe_base_advances_full_window OK
+test_fec_disabled_raw_stream OK
+test_fec_single_drop_each_index OK
+test_fec_two_drops_unrecoverable OK
+test_fec_drop_parity OK
+test_fec_partial_generation_recovers OK
+test_fec_out_of_order_recovers OK
+ALL TESTS PASSED
+
+bash benchmark/test_preflight_isolation.sh
+preflight physical-core tests passed
+
+bash -n benchmark/run_remote.sh benchmark/run_pipeline_rtt_remote.sh benchmark/preflight_isolation.sh
+exit_code=0

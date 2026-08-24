@@ -152,7 +152,7 @@ Config parse_args(int argc, char** argv) {
   }
   if (c.repeat == 0) c.repeat = 1;
   if (c.batch_size == 0) c.batch_size = 1;
-    if (c.fec_timeout_us == 0) c.fec_timeout_us = 1;
+  if (c.fec_timeout_us == 0) c.fec_timeout_us = 1;
   if (c.destinations.empty()) c.destinations.push_back(Destination{c.host, c.port});
   if (!c.echo_out_shm.empty() && (c.destinations.size() != 1 || c.repeat != 1 || c.fec_k != 0 || c.test_drop_pct != 0.0 || c.test_reorder_pct != 0.0)) {
     fprintf(stderr, "echo mode requires one destination, repeat=1, fec-k=0, and no test impairment\n");
@@ -383,6 +383,7 @@ int main(int argc, char** argv) {
   uint64_t fec_last_arrival_ns = 0;
   uint32_t fec_gen_id = 0;
   std::vector<uint64_t> fec_arrival_intervals;
+  if (cfg.fec_k != 0 && cfg.count > 1) fec_arrival_intervals.reserve(cfg.count - 1);
 
   fec::Encoder encoder(cfg.fec_k == 0 ? 1 : cfg.fec_k);
   std::vector<PendingDatagram> pending;
@@ -430,9 +431,11 @@ int main(int argc, char** argv) {
     auto st = ring.read(read_index, frame, &len, &resume);
 
     if (st == shm::Ring::FrameStatus::kOk) {
-      const uint64_t fec_arrival_ns = util::now_ns();
-      if (fec_last_arrival_ns != 0) fec_arrival_intervals.push_back(fec_arrival_ns - fec_last_arrival_ns);
-      fec_last_arrival_ns = fec_arrival_ns;
+      if (cfg.fec_k != 0) {
+        const uint64_t fec_arrival_ns = util::now_ns();
+        if (fec_last_arrival_ns != 0) fec_arrival_intervals.push_back(fec_arrival_ns - fec_last_arrival_ns);
+        fec_last_arrival_ns = fec_arrival_ns;
+      }
       if (cfg.fec_k == 0) {
         fec_data_bytes += len;
         if (!emit_datagram(cfg, sockets, batch, send_counters, pending, rng, dist, frame, len, test_dropped, test_reordered)) {

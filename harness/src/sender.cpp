@@ -1,14 +1,17 @@
 #include <algorithm>
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
 
 #include <cstdint>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <random>
 #include <string>
 #include <vector>
@@ -45,6 +48,9 @@ struct Config {
   double test_reorder_pct = 0.0;
   uint64_t test_reorder_delay_us = 0;
   uint64_t test_seed = 1;
+  std::string echo_out_shm;
+  int rcvbuf = 4 * 1024 * 1024;
+  uint64_t echo_timeout_ms = 2000;
 };
 
 struct PendingDatagram {
@@ -67,6 +73,13 @@ struct SendCounters {
   uint64_t send_calls = 0;
   uint32_t max_sendmmsg_batch = 0;
 };
+
+struct EchoContext {
+  shm::Ring* ring = nullptr;
+  uint64_t received = 0;
+};
+
+EchoContext* echo_context = nullptr;
 
 struct Distribution {
   uint64_t p50 = 0;
@@ -129,6 +142,9 @@ Config parse_args(int argc, char** argv) {
     else if (a == "--test-reorder-pct") c.test_reorder_pct = std::stod(next());
     else if (a == "--test-reorder-delay-us") c.test_reorder_delay_us = std::stoull(next());
     else if (a == "--test-seed") c.test_seed = std::stoull(next());
+    else if (a == "--echo-out-shm") c.echo_out_shm = next();
+    else if (a == "--rcvbuf") c.rcvbuf = std::stoi(next());
+    else if (a == "--echo-timeout-ms") c.echo_timeout_ms = std::stoull(next());
     else {
       fprintf(stderr, "unknown arg: %s\n", a.c_str());
       std::exit(2);
@@ -138,10 +154,14 @@ Config parse_args(int argc, char** argv) {
   if (c.batch_size == 0) c.batch_size = 1;
     if (c.fec_timeout_us == 0) c.fec_timeout_us = 1;
   if (c.destinations.empty()) c.destinations.push_back(Destination{c.host, c.port});
+  if (!c.echo_out_shm.empty() && (c.destinations.size() != 1 || c.repeat != 1 || c.fec_k != 0 || c.test_drop_pct != 0.0 || c.test_reorder_pct != 0.0)) {
+    fprintf(stderr, "echo mode requires one destination, repeat=1, fec-k=0, and no test impairment\n");
+    std::exit(2);
+  }
   return c;
 }
 
-int open_udp_socket(const Destination& dst, int sndbuf) {
+int open_udp_socket(const Destination& dst, int sndbuf, int rcvbuf, uint64_t echo_timeout_ms) {
   addrinfo hints{};
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_DGRAM;
@@ -158,6 +178,13 @@ int open_udp_socket(const Destination& dst, int sndbuf) {
     fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
     if (fd < 0) continue;
     setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+    if (echo_timeout_ms != 0) {
+      setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+      timeval timeout{};
+      timeout.tv_sec = static_cast<time_t>(echo_timeout_ms / 1000);
+      timeout.tv_usec = static_cast<suseconds_t>((echo_timeout_ms % 1000) * 1000);
+      setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    }
     if (connect(fd, p->ai_addr, p->ai_addrlen) == 0) break;
     close(fd);
     fd = -1;
@@ -167,6 +194,10 @@ int open_udp_socket(const Destination& dst, int sndbuf) {
   if (fd < 0) {
     perror("connect");
     std::exit(1);
+  }
+  if (echo_timeout_ms != 0) {
+    const int flags = fcntl(fd, F_GETFL, 0);
+    if (flags >= 0) fcntl(fd, F_SETFL, flags | O_NONBLOCK);
   }
   return fd;
 }
@@ -240,6 +271,29 @@ bool flush_batch(const Config& cfg, const std::vector<int>& sockets, Batch& batc
   return true;
 }
 
+bool drain_echo(int sock) {
+  if (echo_context == nullptr) return true;
+  uint8_t frame[shm::kFrameCap];
+  for (;;) {
+    const ssize_t n = recv(sock, frame, sizeof(frame), MSG_DONTWAIT);
+    if (n > 0) {
+      if (n < static_cast<ssize_t>(sizeof(msg::Header))) {
+        fprintf(stderr, "invalid echoed datagram length: %zd\n", n);
+        return false;
+      }
+      echo_context->ring->publish(frame, static_cast<uint32_t>(n));
+      ++echo_context->received;
+    } else if (n < 0 && errno == EINTR) {
+      continue;
+    } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      return true;
+    } else {
+      perror("recv echo");
+      return false;
+    }
+  }
+}
+
 bool queue_or_flush(const Config& cfg, const std::vector<int>& sockets, Batch& batch, SendCounters& counters, const uint8_t* data, uint32_t len) {
   queue_datagram(batch, data, len);
   if (batch.size >= cfg.batch_size) return flush_batch(cfg, sockets, batch, counters);
@@ -288,16 +342,27 @@ int main(int argc, char** argv) {
   shm::Ring ring;
   ring.attach(seg.base(), cfg.slots, false);
 
+  std::optional<shm::Segment> echo_segment;
+  shm::Ring echo_ring;
+  EchoContext echo_state;
+  if (!cfg.echo_out_shm.empty()) {
+    echo_segment.emplace(shm::Segment::open(cfg.echo_out_shm, shm::region_size(cfg.slots), true));
+    echo_ring.attach(echo_segment->base(), cfg.slots, true);
+    echo_state.ring = &echo_ring;
+    echo_context = &echo_state;
+  }
+
   std::vector<int> sockets;
   sockets.reserve(cfg.destinations.size());
-  for (const auto& dst : cfg.destinations) sockets.push_back(open_udp_socket(dst, cfg.sndbuf));
+  for (const auto& dst : cfg.destinations) sockets.push_back(open_udp_socket(dst, cfg.sndbuf, cfg.rcvbuf, cfg.echo_out_shm.empty() ? 0 : cfg.echo_timeout_ms));
 
-  fprintf(stderr, "sender: in_shm=%s slots=%u targets=%zu count=%llu from_edge=%s sndbuf=%d repeat=%u batch_size=%u batch_timeout_us=%llu fec_k=%u fec_timeout_us=%llu test_drop_pct=%.6f test_reorder_pct=%.6f test_reorder_delay_us=%llu test_seed=%llu orderbook_size=%zu worst_datagram=%zu\n",
+  fprintf(stderr, "sender: in_shm=%s slots=%u targets=%zu count=%llu from_edge=%s sndbuf=%d repeat=%u batch_size=%u batch_timeout_us=%llu fec_k=%u fec_timeout_us=%llu test_drop_pct=%.6f test_reorder_pct=%.6f test_reorder_delay_us=%llu test_seed=%llu orderbook_size=%zu worst_datagram=%zu echo_out_shm=%s rcvbuf=%d echo_timeout_ms=%llu\n",
           cfg.in_shm.c_str(), cfg.slots, sockets.size(), static_cast<unsigned long long>(cfg.count), cfg.from_edge ? "true" : "false",
           cfg.sndbuf, cfg.repeat, cfg.batch_size, static_cast<unsigned long long>(cfg.batch_timeout_us), cfg.fec_k,
           static_cast<unsigned long long>(cfg.fec_timeout_us), cfg.test_drop_pct, cfg.test_reorder_pct,
           static_cast<unsigned long long>(cfg.test_reorder_delay_us), static_cast<unsigned long long>(cfg.test_seed), sizeof(msg::OrderBook),
-          sizeof(fec::Envelope) + sizeof(uint16_t) + sizeof(msg::OrderBook));
+          sizeof(fec::Envelope) + sizeof(uint16_t) + sizeof(msg::OrderBook), cfg.echo_out_shm.empty() ? "none" : cfg.echo_out_shm.c_str(), cfg.rcvbuf,
+          static_cast<unsigned long long>(cfg.echo_timeout_ms));
 
   uint64_t read_index = cfg.from_edge ? ring.live_edge() : 0;
   uint64_t sent = 0;
@@ -342,6 +407,10 @@ int main(int argc, char** argv) {
 
   uint8_t frame[shm::kFrameCap];
   while (cfg.count == 0 || sent < cfg.count) {
+    if (echo_context != nullptr && !drain_echo(sockets[0])) {
+      close_sockets(sockets);
+      return 1;
+    }
     const uint64_t loop_now = util::now_ns();
     if (batch.size != 0 && loop_now - batch.first_ns >= batch_timeout_ns) {
       if (!flush_batch(cfg, sockets, batch, send_counters)) {
@@ -422,11 +491,27 @@ int main(int argc, char** argv) {
     close_sockets(sockets);
     return 1;
   }
+  if (echo_context != nullptr) {
+    const uint64_t deadline = util::now_ns() + cfg.echo_timeout_ms * 1000000ull;
+    while (echo_state.received < send_counters.packets) {
+      if (!drain_echo(sockets[0])) {
+        close_sockets(sockets);
+        return 1;
+      }
+      if (util::now_ns() > deadline) {
+        fprintf(stderr, "echo timeout: received=%llu expected=%llu\n", static_cast<unsigned long long>(echo_state.received),
+                static_cast<unsigned long long>(send_counters.packets));
+        close_sockets(sockets);
+        return 1;
+      }
+    }
+  }
 
   const Distribution arrival_stats = distribution(fec_arrival_intervals);
   const double fec_overhead_pct = fec_data_bytes == 0 ? 0.0 : static_cast<double>(fec_parity_bytes) * 100.0 / static_cast<double>(fec_data_bytes);
-  fprintf(stderr, "sender: sent=%llu packets=%llu lapped=%llu sendmmsg_calls=%llu send_calls=%llu max_sendmmsg_batch=%u fec_parity_sent=%llu fec_closed_by_k=%llu fec_closed_by_timeout=%llu fec_closed_by_flush=%llu fec_data_bytes=%llu fec_parity_bytes=%llu fec_overhead_pct=%.6f fec_arrival_p50_ns=%llu fec_arrival_p99_ns=%llu fec_arrival_max_ns=%llu test_dropped=%llu test_reordered=%llu\n",
-          static_cast<unsigned long long>(sent), static_cast<unsigned long long>(send_counters.packets), static_cast<unsigned long long>(lapped_events),
+  fprintf(stderr, "sender: sent=%llu packets=%llu echoed=%llu lapped=%llu sendmmsg_calls=%llu send_calls=%llu max_sendmmsg_batch=%u fec_parity_sent=%llu fec_closed_by_k=%llu fec_closed_by_timeout=%llu fec_closed_by_flush=%llu fec_data_bytes=%llu fec_parity_bytes=%llu fec_overhead_pct=%.6f fec_arrival_p50_ns=%llu fec_arrival_p99_ns=%llu fec_arrival_max_ns=%llu test_dropped=%llu test_reordered=%llu\n",
+          static_cast<unsigned long long>(sent), static_cast<unsigned long long>(send_counters.packets), static_cast<unsigned long long>(echo_state.received),
+          static_cast<unsigned long long>(lapped_events),
           static_cast<unsigned long long>(send_counters.sendmmsg_calls), static_cast<unsigned long long>(send_counters.send_calls), send_counters.max_sendmmsg_batch,
           static_cast<unsigned long long>(fec_parity_sent), static_cast<unsigned long long>(fec_closed_by_k),
           static_cast<unsigned long long>(fec_closed_by_timeout), static_cast<unsigned long long>(fec_closed_by_flush),

@@ -214,7 +214,10 @@ preflight_remote() {
   ssh_host "$host" "cd $remote_repo && bash benchmark/preflight_isolation.sh --cores '$cores_arg' --isolated-cores '$iso_arg' --label '$label_arg'"
 }
 
-preflight_remote "$tx_host" "$cpu_producer,$cpu_sender" "tx"
+declare -A preflight_core_lists=()
+declare -A preflight_labels=()
+preflight_core_lists[$tx_host]="$cpu_producer,$cpu_sender"
+preflight_labels[$tx_host]="tx"
 declare -A rx_core_lists=()
 for ((i=0; i<fanout; ++i)); do
   host_index="$i"
@@ -230,7 +233,16 @@ for ((i=0; i<fanout; ++i)); do
   fi
 done
 for host in "${!rx_core_lists[@]}"; do
-  preflight_remote "$host" "${rx_core_lists[$host]}" "rx"
+  if [[ -n "${preflight_core_lists[$host]+x}" ]]; then
+    preflight_core_lists[$host]="${preflight_core_lists[$host]},${rx_core_lists[$host]}"
+    preflight_labels[$host]="${preflight_labels[$host]}+rx"
+  else
+    preflight_core_lists[$host]="${rx_core_lists[$host]}"
+    preflight_labels[$host]="rx"
+  fi
+done
+for host in "${!preflight_core_lists[@]}"; do
+  preflight_remote "$host" "${preflight_core_lists[$host]}" "${preflight_labels[$host]}"
 done
 
 rx_remote_dirs=()

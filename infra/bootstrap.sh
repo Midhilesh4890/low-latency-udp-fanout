@@ -51,6 +51,10 @@ sudo systemctl stop irqbalance 2>/dev/null || true
 sudo systemctl disable irqbalance 2>/dev/null || true
 
 smt_state="unknown"
+isolated_physical_cores="${ISOLATED_PHYSICAL_CORES:-3}"
+case "$isolated_physical_cores" in
+  ''|*[!0-9]*|0) printf '%s\n' "ISOLATED_PHYSICAL_CORES must be a positive integer" >&2; exit 2 ;;
+esac
 if [[ -w /sys/devices/system/cpu/smt/control ]]; then
   if printf '%s\n' off | sudo tee /sys/devices/system/cpu/smt/control >/dev/null 2>&1; then
     smt_state="$(cat /sys/devices/system/cpu/smt/control 2>/dev/null || printf unknown)"
@@ -63,10 +67,11 @@ fi
 printf '%s\n' "$smt_state" >"$base/smt_choice.txt"
 
 map_file="$base/thread_sibling_choice.txt"
-python3 - "$smt_state" <<'PY' >"$map_file"
+python3 - "$smt_state" "$isolated_physical_cores" <<'PY' >"$map_file"
 from pathlib import Path
 import sys
 smt_state=sys.argv[1]
+desired=int(sys.argv[2])
 pairs=[]
 for p in sorted(Path('/sys/devices/system/cpu').glob('cpu[0-9]*'), key=lambda x: int(x.name[3:])):
     q=p / 'topology' / 'thread_siblings_list'
@@ -79,6 +84,7 @@ for p in sorted(Path('/sys/devices/system/cpu').glob('cpu[0-9]*'), key=lambda x:
 seen=set()
 chosen=[]
 fallback=[]
+chosen_groups=0
 for cpu,text,first in pairs:
     if first in seen:
         continue
@@ -96,11 +102,12 @@ for cpu,text,first in pairs:
         chosen.append(str(min(members)))
     else:
         fallback.extend(str(x) for x in members)
-    if len(chosen) >= 3 or len(set(fallback)) >= 6:
+    chosen_groups += 1
+    if chosen_groups >= desired:
         break
 print('map=' + ';'.join(f'{cpu}:{text}' for cpu,text,_ in pairs))
 if chosen:
-    print('chosen=' + ','.join(chosen[:3]))
+    print('chosen=' + ','.join(chosen[:desired]))
     print('smt_path=nosmt')
 else:
     ordered=[]

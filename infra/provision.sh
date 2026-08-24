@@ -9,6 +9,10 @@ ssh_cidr="${OPERATOR_CIDR:-}"
 count="${INSTANCE_COUNT:-1}"
 name_prefix="${NAME_PREFIX:-spectral-ec2-pass}"
 placement_group="${PLACEMENT_GROUP:-${name_prefix}-cluster}"
+session="${SESSION:-}"
+core_count="${CORE_COUNT:-}"
+threads_per_core="${THREADS_PER_CORE:-}"
+shutdown_minutes="${SHUTDOWN_MINUTES:-240}"
 
 if [[ -z "$ssh_cidr" ]]; then
   checkip_scheme="https:"
@@ -31,7 +35,21 @@ aws ec2 authorize-security-group-ingress --region "$region" --group-id "$sg_id" 
 aws ec2 describe-placement-groups --region "$region" --group-names "$placement_group" >/dev/null 2>&1 || aws ec2 create-placement-group --region "$region" --group-name "$placement_group" --strategy cluster
 
 user_data="$(mktemp)"
-printf '%s\n' '#!/bin/sh' 'shutdown -h +240' >"$user_data"
+printf '%s\n' '#!/bin/sh' "shutdown -h +$shutdown_minutes" >"$user_data"
+
+cpu_options=()
+if [[ -n "$core_count" || -n "$threads_per_core" ]]; then
+  if [[ -z "$core_count" || -z "$threads_per_core" ]]; then
+    printf '%s\n' "CORE_COUNT and THREADS_PER_CORE must be set together" >&2
+    exit 2
+  fi
+  cpu_options=(--cpu-options "CoreCount=$core_count,ThreadsPerCore=$threads_per_core")
+fi
+
+session_tags=""
+if [[ -n "$session" ]]; then
+  session_tags=",{Key=Session,Value=${session}}"
+fi
 
 aws ec2 run-instances \
   --region "$region" \
@@ -42,10 +60,11 @@ aws ec2 run-instances \
   --security-group-ids "$sg_id" \
   --placement "AvailabilityZone=$az,GroupName=$placement_group" \
   --instance-initiated-shutdown-behavior terminate \
+  "${cpu_options[@]}" \
   --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=8,VolumeType=gp3,DeleteOnTermination=true}' \
   --associate-public-ip-address \
   --user-data "file:""/""/$user_data" \
-  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${name_prefix}},{Key=Project,Value=spectral-ec2-pass}]" "ResourceType=volume,Tags=[{Key=Name,Value=${name_prefix}},{Key=Project,Value=spectral-ec2-pass}]" \
+  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${name_prefix}},{Key=Project,Value=spectral-ec2-pass}${session_tags}]" "ResourceType=volume,Tags=[{Key=Name,Value=${name_prefix}},{Key=Project,Value=spectral-ec2-pass}${session_tags}]" \
   --count "$count"
 
 rm -f "$user_data"

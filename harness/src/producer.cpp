@@ -1,8 +1,10 @@
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 
 #include "message.h"
 #include "shm_ring.h"
@@ -18,6 +20,7 @@ struct Config {
   uint32_t slots = 1024;
   uint64_t count = 1000000;
   double rate = 0.0;
+  uint64_t start_delay_ms = 0;
   Kind kind = Kind::Mixed;
 };
 
@@ -47,6 +50,7 @@ Config parse_args(int argc, char** argv) {
     else if (a == "--slots") c.slots = static_cast<uint32_t>(std::stoul(next()));
     else if (a == "--count") c.count = std::stoull(next());
     else if (a == "--rate") c.rate = std::stod(next());
+    else if (a == "--start-delay-ms") c.start_delay_ms = std::stoull(next());
     else if (a == "--type") c.kind = parse_kind(next());
     else {
       fprintf(stderr, "unknown arg: %s\n", a.c_str());
@@ -195,14 +199,16 @@ int main(int argc, char** argv) {
 
   alignas(64) uint8_t frame[shm::kFrameCap];
 
+  if (cfg.start_delay_ms != 0) std::this_thread::sleep_for(std::chrono::milliseconds(cfg.start_delay_ms));
+
   const uint64_t interval_ns =
       cfg.rate > 0.0 ? static_cast<uint64_t>(1e9 / cfg.rate) : 0;
   uint64_t next_send = util::now_ns();
 
-  fprintf(stderr, "producer: shm=%s slots=%u count=%llu rate=%.0f type=%s\n",
+  fprintf(stderr, "producer: shm=%s slots=%u count=%llu rate=%.0f type=%s start_delay_ms=%llu\n",
           cfg.shm_name.c_str(), cfg.slots,
           static_cast<unsigned long long>(cfg.count), cfg.rate,
-          kind_name(cfg.kind));
+          kind_name(cfg.kind), static_cast<unsigned long long>(cfg.start_delay_ms));
 
   uint64_t seq = 0;
   while (cfg.count == 0 || seq < cfg.count) {

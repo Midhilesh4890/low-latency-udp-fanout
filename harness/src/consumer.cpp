@@ -22,6 +22,7 @@ struct Config {
   bool from_edge = false;
   std::string csv;
   uint64_t idle_ms = 2000;
+  uint64_t skip = 0;
 };
 
 struct CsvRecord {
@@ -47,6 +48,7 @@ Config parse_args(int argc, char** argv) {
     else if (a == "--from-edge") c.from_edge = true;
     else if (a == "--csv") c.csv = next();
     else if (a == "--idle-ms") c.idle_ms = std::stoull(next());
+    else if (a == "--skip") c.skip = std::stoull(next());
     else {
       fprintf(stderr, "unknown arg: %s\n", a.c_str());
       std::exit(2);
@@ -90,6 +92,7 @@ int main(int argc, char** argv) {
 
   uint64_t read_index = cfg.from_edge ? ring.live_edge() : 0;
   uint64_t received = 0;
+  uint64_t skipped = 0;
   uint64_t lapped_events = 0;
   const uint64_t idle_ns = cfg.idle_ms * 1000000ull;
   uint64_t last_progress = util::now_ns();
@@ -103,6 +106,12 @@ int main(int argc, char** argv) {
     if (st == shm::Ring::FrameStatus::kOk) {
       const uint64_t recv_ts = util::now_ns();
       const auto* hdr = reinterpret_cast<const msg::Header*>(frame);
+      if (skipped < cfg.skip) {
+        ++skipped;
+        ++read_index;
+        last_progress = recv_ts;
+        continue;
+      }
       const uint64_t latency =
           recv_ts > hdr->send_ts_ns ? recv_ts - hdr->send_ts_ns : 0;
       acc.record(hdr->seq_id, latency);
@@ -142,8 +151,8 @@ int main(int argc, char** argv) {
     }
   }
 
-  fprintf(stderr, "consumer: lapped %llu times\n",
-          (unsigned long long)lapped_events);
+  fprintf(stderr, "consumer: skipped %llu lapped %llu times\n",
+          (unsigned long long)skipped, (unsigned long long)lapped_events);
   print_report(acc.report());
   return 0;
 }

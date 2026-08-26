@@ -1,1 +1,0 @@
-sender_rc=0 producer_rc=0 receiver_rc=0

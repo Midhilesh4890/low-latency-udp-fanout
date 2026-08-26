@@ -11,6 +11,5 @@ benchmark/results/final/*
 !benchmark/results/final/**/*.md
 benchmark/results/final/**/*.latencies
 benchmark/results/final/**/*.bin
-reports/handoff/
 *.zip
 harness/bin/

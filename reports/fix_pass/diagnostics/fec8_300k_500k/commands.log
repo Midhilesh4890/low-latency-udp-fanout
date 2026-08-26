@@ -1,3 +1,0 @@
-receiver: harness/bin/receiver --out-shm /fix_fec8_300k_500k_out --slots 65536 --port 9403 --idle-ms 2000
-producer: harness/bin/producer --shm /fix_fec8_300k_500k_in --slots 65536 --count 500000 --rate 300000 --type mixed
-sender: harness/bin/sender --in-shm /fix_fec8_300k_500k_in --slots 65536 --count 500000 --host 127.0.0.1 --port 9403 --fec-k 8

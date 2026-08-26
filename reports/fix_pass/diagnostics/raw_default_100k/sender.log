@@ -1,2 +1,0 @@
-sender: in_shm=/fix_raw_default_in slots=65536 targets=1 count=20000 from_edge=false sndbuf=4194304 repeat=1 fec_k=0 fec_timeout_us=200 test_drop_pct=0.000000 test_reorder_pct=0.000000 test_reorder_delay_us=0 test_seed=1 orderbook_size=576 worst_datagram=594
-send: Connection refused

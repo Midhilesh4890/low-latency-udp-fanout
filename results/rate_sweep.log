@@ -1,0 +1,29 @@
+topology=producer(TX)->sender(TX)->receiver(RX)->relay(RX)->sender(RX)->receiver(TX)->consumer(TX)
+clock_method=same_clock_symmetric_pipeline_rtt_half
+statement=RTT/2 averages two complete receiver decode/dedupe stages and four shared-memory hops; it is not directional one-way latency
+revision=4d4fdad
+warmup=100000
+count=3000000
+batch_size=32
+batch_timeout_us=5
+fec_k=0
+ena_adaptive_rx=on
+
+rate=20000 run=sweep_20k_3m
+one_way_us min=19.016 mean=23.158 max=142.632 p01=20.581 p50=22.441 p99=35.020 p99.9=49.330 p99.99=77.620
+integrity consumer=3000000/3000000 dropped=0 sender_forward=3100000 sender_return=3100000 receiver_forward=3100000 receiver_return=3100000 laps=0 duplicates=0 rejects=0 confirmed_loss=0
+
+rate=100000 run=sweep_100k_3m
+one_way_us min=18.943 mean=50.192 max=145.917 p01=29.777 p50=50.097 p99=70.770 p99.9=85.147 p99.99=110.627
+integrity consumer=3000000/3000000 dropped=0 sender_forward=3100000 sender_return=3100000 receiver_forward=3100000 receiver_return=3100000 laps=0 duplicates=0 rejects=0 confirmed_loss=0
+
+rate=500000 run=sweep_500k_3m
+one_way_us min=27.057 mean=65.862 max=404.053 p01=47.767 p50=64.156 p99=100.034 p99.9=177.234 p99.99=364.392
+integrity consumer=3000000/3000000 dropped=0 sender_forward=3100000 sender_return=3100000 receiver_forward=3100000 receiver_return=3100000 laps=0 duplicates=0 rejects=0 confirmed_loss=0
+
+rate_500k_one_way_bins samples=3000000 <=50us=2.883967% 50-100us=96.113267% 100-200us=0.912533% 200-500us=0.090233% 500-1000us=0.000000% >1000us=0.000000%
+rate_500k_raw_rtt_deciles p50_min_us=126.695 p50_max_us=129.795 p50_last_over_first=1.005694
+rate_500k_raw_rtt_max_us=808.105
+rate_500k_samples_over_1ms_raw_rtt=0
+
+The highest tested tier, 500 kmsg/s, is clean and lossless. It has no decile ramp or contiguous multi-millisecond stalls. Saturation was not reached in this rate sweep; 500 kmsg/s is therefore the highest tested clean rate in the log, not a measured maximum.

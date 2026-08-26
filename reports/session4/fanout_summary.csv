@@ -1,6 +1,0 @@
-run,receivers,source_rate_msg_s,offered_datagrams_s,status,measured_deliveries,reason
-session4/fanout/control1_275k,1,275000,275000,accepted,3000000,exact delivery; sender lapped=0
-session4/fanout/fanout2_275k,2,275000,550000,accepted,6000000,exact delivery to both receivers; sender lapped=0
-session3/session3_fanout3_250k_3m,3,250000,750000,accepted,9000000,exact delivery to all three receivers; sender lapped=0
-session4/fanout/fanout3_275k,3,275000,825000,rejected,,sender did not exit within 72 s; no counters accepted
-session4/fanout/control1_825k,1,825000,825000,rejected,,sender did not exit within 64 s; no counters accepted

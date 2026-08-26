@@ -7,9 +7,9 @@ ami="${AMI:-}"
 key_name="${KEY_NAME:-spectral-key}"
 ssh_cidr="${OPERATOR_CIDR:-}"
 count="${INSTANCE_COUNT:-1}"
-name_prefix="${NAME_PREFIX:-spectral-ec2-pass}"
+name_prefix="${NAME_PREFIX:-spectral-transport}"
 placement_group="${PLACEMENT_GROUP:-${name_prefix}-cluster}"
-session="${SESSION:-}"
+run_tag="${RUN_TAG:-}"
 core_count="${CORE_COUNT:-}"
 threads_per_core="${THREADS_PER_CORE:-}"
 shutdown_minutes="${SHUTDOWN_MINUTES:-240}"
@@ -46,9 +46,9 @@ if [[ -n "$core_count" || -n "$threads_per_core" ]]; then
   cpu_options=(--cpu-options "CoreCount=$core_count,ThreadsPerCore=$threads_per_core")
 fi
 
-session_tags=""
-if [[ -n "$session" ]]; then
-  session_tags=",{Key=Session,Value=${session}}"
+run_tags=""
+if [[ -n "$run_tag" ]]; then
+  run_tags=",{Key=Run,Value=${run_tag}}"
 fi
 
 aws ec2 run-instances \
@@ -64,7 +64,7 @@ aws ec2 run-instances \
   --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=8,VolumeType=gp3,DeleteOnTermination=true}' \
   --associate-public-ip-address \
   --user-data "file:""/""/$user_data" \
-  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${name_prefix}},{Key=Project,Value=spectral-ec2-pass}${session_tags}]" "ResourceType=volume,Tags=[{Key=Name,Value=${name_prefix}},{Key=Project,Value=spectral-ec2-pass}${session_tags}]" \
+  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${name_prefix}},{Key=Project,Value=spectral-transport}${run_tags}]" "ResourceType=volume,Tags=[{Key=Name,Value=${name_prefix}},{Key=Project,Value=spectral-transport}${run_tags}]" \
   --count "$count"
 
 rm -f "$user_data"

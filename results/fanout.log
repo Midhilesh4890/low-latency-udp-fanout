@@ -1,0 +1,28 @@
+topology=one_TX_producer_and_multidestination_sender_to_one_RX_host_with_distinct_receiver_consumer_pairs
+revision=e5fb156
+clock_method=none
+latency_status=excluded_cross_host_timestamps_not_synchronized
+count_per_consumer=3000000
+warmup=100000
+batch_size=32
+batch_timeout_us=5
+fec_k=0
+
+source_rate=100000 receivers=1 offered_datagrams_per_second=100000 run=fanout1_100k_3m status=CLEAN sender_source_messages=3100000 sender_packets=3100000 sender_laps=0 measured_deliveries=3000000 receiver_received=3100000 receiver_published=3100000 drops=0 duplicates=0 rejects=0 confirmed_loss=0 consumer_laps=0
+source_rate=100000 receivers=3 offered_datagrams_per_second=300000 run=fanout3_100k_3m status=CLEAN sender_source_messages=3100000 sender_packets=9300000 sender_laps=0 measured_deliveries=9000000 each_receiver_received=3100000 each_receiver_published=3100000 each_consumer_received=3000000 drops=0 duplicates=0 rejects=0 confirmed_loss=0 consumer_laps=0
+source_rate=250000 receivers=3 offered_datagrams_per_second=750000 run=fanout3_250k_3m status=CLEAN sender_source_messages=3100000 sender_packets=9300000 sender_laps=0 measured_deliveries=9000000 each_receiver_received=3100000 each_receiver_published=3100000 each_consumer_received=3000000 drops=0 duplicates=0 rejects=0 confirmed_loss=0 consumer_laps=0
+source_rate=500000 receivers=1 offered_datagrams_per_second=500000 run=fanout1_500k_3m status=CLEAN sender_source_messages=3100000 sender_packets=3100000 sender_laps=0 measured_deliveries=3000000 receiver_received=3100000 receiver_published=3100000 drops=0 duplicates=0 rejects=0 confirmed_loss=0 consumer_laps=0
+
+source_rate=275000 receivers=3 offered_datagrams_per_second=825000 run=fanout3_275k_3m status=REJECTED reason=sender_did_not_exit_within_72s accepted_counters=none
+source_rate=300000 receivers=3 offered_datagrams_per_second=900000 run=fanout3_300k_3m status=REJECTED reason=sender_did_not_exit_within_71s accepted_counters=none
+source_rate=375000 receivers=3 offered_datagrams_per_second=1125000 run=fanout3_375k_3m status=REJECTED reason=sender_did_not_exit_within_69s producer_sent=3100000 accepted_counters=none
+source_rate=500000 receivers=3 offered_datagrams_per_second=1500000 run=fanout3b_500k_3m status=REJECTED reason=sender_did_not_exit_within_67s producer_sent=3100000 accepted_counters=none
+
+highest_clean_three_receiver_source_rate=250000
+lowest_failed_three_receiver_source_rate=275000
+three_receiver_source_rate_bracket=250000_clean_to_275000_failed
+three_receiver_datagram_rate_bracket=750000_clean_to_825000_failed
+
+Fan-out latency values printed by remote consumers are not evidence because producer timestamps originate on TX and consumer timestamps originate on RX while clock_sync.method=none. This phase measures delivery and scaling only.
+
+The first 500k three-receiver attempt was rejected before traffic because sequential readiness checks exceeded 30-second process idle windows. Commit e5fb156 added a manifest-recorded 120-second startup allowance and source revision. The subsequent failures listed above occur after traffic starts and are capacity failures, not startup failures.

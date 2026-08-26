@@ -1,4 +1,0 @@
-Script started on 2026-08-24 09:39:18+00:00 [COMMAND="ssh -i /home/midhilesh/.ssh/spectral-key.pem -o BatchMode=yes -o UserKnownHostsFile=/tmp/session2_known_hosts ubuntu@3.87.156.180 taskset -c 1 /home/ubuntu/task/tools/clock_probe client 172.31.40.167 9100 100000" <not executed on terminal>]
-samples=100000 rtt_min_ns=34370 rtt_p50_ns=37590 rtt_p99_ns=40981 rtt_p999_ns=44751 min_rtt_offset_ns=9499
-
-Script done on 2026-08-24 09:39:25+00:00 [COMMAND_EXIT_CODE="0"]

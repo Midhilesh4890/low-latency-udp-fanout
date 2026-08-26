@@ -1,2 +1,0 @@
-producer: shm=/fix_raw_default_retry_in slots=65536 count=1000 rate=100000 type=mixed
-producer: sent 1000 messages

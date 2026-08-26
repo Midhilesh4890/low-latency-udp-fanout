@@ -1,2 +1,0 @@
-2: enp39s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9001 qdisc mq state UP mode DEFAULT group default qlen 1000
-    link/ether 02:97:54:e7:fb:b7 brd ff:ff:ff:ff:ff:ff promiscuity 0  allmulti 0 minmtu 128 maxmtu 9216 addrgenmode eui64 numtxqueues 8 numrxqueues 8 gso_max_size 65536 gso_max_segs 65535 tso_max_size 65536 tso_max_segs 65535 gro_max_size 65536 parentbus pci parentdev 0000:27:00.0 

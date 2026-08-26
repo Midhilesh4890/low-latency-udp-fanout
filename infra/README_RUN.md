@@ -1,16 +1,31 @@
-# EC2 run commands
+# EC2 host preparation
 
-Provision one sender host:
+`provision.sh` creates Ubuntu EC2 instances, a cluster placement group, and a security group. Root EBS volumes use `DeleteOnTermination=true`, and instance-initiated shutdown terminates the instance.
 
+Required environment variables depend on the AWS account and target Availability Zone. A report-compatible launch uses:
+
+```bash
+REGION=us-east-1 \
+AZ=us-east-1d \
+INSTANCE_TYPE=m7i.4xlarge \
+INSTANCE_COUNT=2 \
+CORE_COUNT=8 \
+THREADS_PER_CORE=1 \
+NAME_PREFIX=spectral-transport \
 bash infra/provision.sh
+```
 
-Provision the receiver host when needed:
+Copy the repository to both hosts, then run `infra/bootstrap.sh`. The script installs build and timing utilities, raises UDP socket limits, disables `irqbalance`, selects distinct physical CPUs, adds `isolcpus`, `nohz_full`, and `rcu_nocbs` kernel parameters, moves IRQ affinity to CPU 0, and reboots when required.
 
-INSTANCE_COUNT=1 INSTANCE_TYPE=m7i.2xlarge bash infra/provision.sh
+After reboot, verify the kernel command line and CPU topology before running a benchmark:
 
-Destroy all pass resources:
+```bash
+cat /proc/cmdline
+lscpu -e
+bash benchmark/preflight_isolation.sh \
+  --cores 1,2,3,4 \
+  --isolated-cores 1,2,3,4 \
+  --label transport-tx
+```
 
-aws ec2 terminate-instances --region us-east-1 --instance-ids $(aws ec2 describe-instances --region us-east-1 --filters Name=tag:Project,Values=spectral-ec2-pass Name=instance-state-name,Values=pending,running,stopping,stopped --query 'Reservations[].Instances[].InstanceId' --output text)
-aws ec2 delete-placement-group --region us-east-1 --group-name spectral-ec2-pass-cluster
-
-Estimated hourly cost path used with 16 vCPU quota: two m7i.2xlarge instances for two-host work, then one m7i.2xlarge sender plus receiver processes colocated on the receiver host for fan-out fallback. On-demand us-east-1 m7i.2xlarge is about 0.4032 USD/hour, so the active two-host phase is about 0.8064 USD/hour before EBS pennies.
+Terminate instances and delete the placement group and security group after measurement. Confirm that no tagged instances, EBS volumes, Elastic IPs, or network interfaces remain.

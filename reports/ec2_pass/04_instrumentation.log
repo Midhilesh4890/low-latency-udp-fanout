@@ -1,9 +1,0 @@
-Required instrumentation exists from e21493f and was verified present before provisioning:
-- tools/clock_probe.cpp
-- harness/include/fec.h
-- harness/include/dedupe_window.h
-- harness/src/receiver.cpp
-- benchmark/summarize.py
-Counters covered: fec_recovery_p999_ns, fec_recovery_p9999_ns, fec_late_recovered_too_old, fec_closed_by_k, fec_closed_by_timeout, fec_closed_by_flush, receiver_seq_jump_raw.
-Targeted seeded injector verification: NOT_RUN.
-Reason: Part A provisioning failed before an EC2 instance was created. No local targeted run was executed.

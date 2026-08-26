@@ -1,2 +1,0 @@
-receiver: out_shm=/bench_fec_after_out_100000 slots=65536 bind=0.0.0.0:19701 count=500000 rcvbuf=4194304 batch_size=32 dedupe=true dedupe_window=65536 fec_gens=64
-receiver: received=556918 published=494731 rejected=0 accepted=494731 duplicates=0 too_old=0 lost_confirmed=5269 window_slides=5269 max_reorder_depth=65535 old_duplicates=0 fec_parity_received=62187 fec_recovered=0 fec_unrecoverable_gens=11 fec_recovery_p50_ns=0 fec_recovery_p99_ns=0 fec_recovery_max_ns=0

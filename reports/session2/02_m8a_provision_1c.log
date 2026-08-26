@@ -1,5 +1,0 @@
-Script started on 2026-08-24 09:22:58+00:00 [COMMAND="env AZ=us-east-1c INSTANCE_TYPE=m8a.2xlarge INSTANCE_COUNT=1 NAME_PREFIX=spectral-session2-m8a PLACEMENT_GROUP=spectral-ec2-pass-cluster SESSION=session2 CORE_COUNT=4 THREADS_PER_CORE=1 SHUTDOWN_MINUTES=90 bash infra/provision.sh" <not executed on terminal>]
-
-aws: [ERROR]: An error occurred (InsufficientInstanceCapacity) when calling the RunInstances operation (reached max retries: 2): We currently do not have sufficient m8a.2xlarge capacity in the Availability Zone you requested (us-east-1c). Our system will be working on provisioning additional capacity. You can currently get m8a.2xlarge capacity by not specifying an Availability Zone in your request or choosing us-east-1a, us-east-1b, us-east-1d, us-east-1f.
-
-Script done on 2026-08-24 09:23:24+00:00 [COMMAND_EXIT_CODE="254"]

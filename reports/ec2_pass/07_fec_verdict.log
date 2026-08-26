@@ -1,7 +1,0 @@
-NOT_RUN: FEC verdict matrix did not execute.
-Reason: Part A provisioning failed before an EC2 instance was created.
-Matrix rate=300000,500000,700000 loss=0,0.01,0.1,1 fec=off,k=8 repeats=3: NOT_RUN.
-Netem qdisc/filter setup: NOT_RUN.
-Reorder probe old versus new dedupe logic: NOT_RUN.
-Final tc qdisc show: NOT_RUN, no host.
-No FEC verdict can be drawn from this pass.

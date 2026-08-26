@@ -1,4 +1,0 @@
-NOT_RUN: host bootstrap did not execute.
-Reason: Part A provisioning failed before an EC2 instance was created.
-Provisioning retry used the existing e21493f scaffolding plus the current infra/provision.sh placement-group check fix.
-Rejected alternative: local WSL2 bootstrap, compile, unit test, or latency measurement.

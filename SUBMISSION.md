@@ -4,11 +4,12 @@
 
 This submission implements a Linux C++17 transport between the fixed shared-memory producer and consumer supplied with the challenge. Messages enter a lock-free shared-memory ring, are sent as UDP datagrams with `sendmmsg`, received with `recvmmsg`, validated and deduplicated, then published to the destination shared-memory ring. One sender can transmit the same stream to multiple destinations. Optional XOR forward error correction (FEC) can recover one missing datagram in each generation of eight data datagrams.
 
-The report-grade configuration uses a batch size of 32, a 5 microsecond batch timeout, 64 MiB UDP socket buffers, a 65,536-message deduplication window, and FEC disabled by default. Two `m7i.4xlarge` instances in one Availability Zone were configured with eight physical cores, no simultaneous multithreading, six isolated benchmark cores, ENA, and MTU 9001.
+The latency configuration uses a batch size of 32, a 5 microsecond batch timeout, 64 MiB UDP socket buffers, a 65,536-message deduplication window, and FEC disabled by default. Two `m7i.4xlarge` instances in one Availability Zone were configured with eight physical cores, no simultaneous multithreading, six isolated benchmark cores, ENA, and MTU 9001.
 
-The principal results are:
+Measured results include:
 
-- Zero-loss delivery remained exact through 725,000 source messages/s. At 750,000 messages/s the producer-to-sender shared-memory ring lapped 55,349 times. Tail latency had already collapsed at 725,000 messages/s, so the practical operating knee is lower than the exact-delivery ceiling.
+- In the plain one-way topology, the original 65,536-slot ring was exact at 800,000 messages/s and failed at 1,000,000. A 1,048,576-slot ring made a finite 1,000,000-message/s run exact by buffering backlog. After the FEC-off sender fast path, 1,250,000 messages/s was exact in two 3,000,000-message repetitions, while 1,375,000 failed twice. Sender processing remained about 0.80-0.84 million messages/s at that boundary, so 1.25M is burst capacity, not sustainable throughput. The measurements do not demonstrate 2M.
+- In the symmetric RTT/2 topology, zero-loss delivery remained exact through 725,000 source messages/s. At 750,000 messages/s the producer-to-sender shared-memory ring lapped 55,349 times. Tail latency had already collapsed at 725,000 messages/s, so the practical operating knee is lower than the exact-delivery ceiling.
 - Three-destination fan-out delivered exactly at 250,000 source messages/s, or 750,000 transmitted datagrams/s. The sender did not complete at 275,000 source messages/s with three destinations. A one-destination control also failed at the equivalent aggregate rate of 825,000 datagrams/s, identifying aggregate sender capacity rather than proving that destination iteration alone was responsible.
 - FEC reduced missing messages substantially under synthetic loss, but it was slower at every zero-loss percentile and reduced the usable throughput envelope to roughly one third of FEC-off. The data supports keeping FEC disabled for latency-first operation.
 
@@ -24,7 +25,9 @@ The producer and consumer framing fields, `seq_id` and `send_ts_ns`, are preserv
 producer -> shared-memory ring -> sender -> UDP/ENA -> receiver -> shared-memory ring -> consumer
 ```
 
-The sender busy-polls its input ring and groups ready datagrams into fixed-capacity batches. A batch is flushed when it reaches 32 datagrams or its oldest member reaches the 5 microsecond timeout. `sendmmsg` amortizes system-call overhead while the timeout bounds batching delay at low rates. The receiver uses `recvmmsg`, validates datagram framing, runs the optional FEC decoder, applies the deduplication window, and publishes accepted frames to shared memory.
+The sender busy-polls its input ring and groups ready datagrams into fixed-capacity batches. With FEC, impairment injection, and echo mode disabled, the sender reads each ring slot directly into its owned batch buffer and fills up to one batch per loop timestamp. The buffer remains stable until `sendmmsg` returns. Other configurations use the generic path.
+
+A batch is flushed when it reaches 32 datagrams or its oldest member reaches the 5 microsecond timeout. `sendmmsg` amortizes system-call overhead while the timeout bounds batching delay at low rates. The receiver uses `recvmmsg`, validates datagram framing, runs the optional FEC decoder, applies the deduplication window, and publishes accepted frames to shared memory.
 
 Each destination has a connected UDP socket. Fan-out sends each completed batch to every destination in sequence. This keeps the common single-destination path small and makes delivery accounting explicit, but total sender work grows linearly with destination count.
 
@@ -46,7 +49,7 @@ Batch size 32 with a 5 microsecond timeout was retained because it completed eve
 
 Direct cross-host timestamp subtraction was rejected. The Ubuntu measurement hosts did not expose a PTP hardware clock, and independent bidirectional clock probes did not validate the required agreement after chrony tuning. A later configuration check exposed the ENA PHC on Amazon Linux 2023 by enabling `ena.phc_enable=1`, but the two Nitro PHCs reported hardware error bounds of 22.735 and 28.038 microseconds. Those bounds were too large for the measured latency scale. The report therefore uses the same-clock symmetric RTT/2 topology described below.
 
-Kernel bypass, busy polling, and a multi-destination `sendmmsg` redesign are not part of the submitted transport. They remain plausible ways to raise the ceiling, but would change the deployment and validation surface substantially.
+Kernel bypass, `SO_BUSY_POLL`, and a multi-destination `sendmmsg` redesign were not evaluated. The sender and receiver already busy-poll in user space.
 
 ## Measurement method
 
@@ -83,7 +86,24 @@ The producer and final consumer timestamp on the TX host, so no cross-host clock
 
 Each accepted percentile run contains 3,000,000 measured messages after 100,000 warm-up messages. Runs are rejected if any sender or relay laps its input ring, receivers reject malformed input, counters are incomplete, or required manifests are missing.
 
-## Zero-loss rate results
+## Plain one-way throughput
+
+The one-way topology places the producer and sender on TX and the receiver and consumer on RX. There is no return path. Cross-host timestamps are not used. Each accepted run consumes exactly 3,000,000 measured messages after 100,000 warm-up messages, reports zero consumer drops, publishes all 3,100,000 messages, and has zero sender laps.
+
+| Sender | Ring slots | Ring memory per segment | Highest repeatable exact finite rate | First repeatable failed rate | Observed sender processing |
+|---|---:|---:|---:|---:|---:|
+| Original | 65,536 | 40 MiB | 800k/s | 1M/s | not instrumented |
+| Original | 1,048,576 | 640 MiB | 1M/s | 1.25M/s | backlog drained after producer completion |
+| FEC-off fast path | 65,536 | 40 MiB | not established | 1M/s | 0.85M/s |
+| FEC-off fast path | 1,048,576 | 640 MiB | 1.25M/s | 1.375M/s | 0.82-0.84M/s at the boundary |
+
+The fast path removes the ring-slot to stack-buffer to batch-buffer double copy for plain FEC-off sends. It also fills a batch using one loop timestamp and records exact skipped-message counts. The generic path remains active for FEC, sender-side impairment, and echo mode.
+
+The 1,048,576-slot result is a burst-buffer improvement. At 1.25M/s the sender took 3.74-3.79 seconds to process 3.1 million messages, or 0.819-0.829M/s. The producer completed earlier and the sender drained the backlog afterward. The large ring also uses 16 times the shared memory and showed a lower processing rate than the small ring in some runs, consistent with cache and TLB cost. No low-rate latency run used the large ring.
+
+The exact counters are in [`results/oneway_throughput_runs.csv`](results/oneway_throughput_runs.csv) and the boundary summary is in [`results/oneway_throughput_summary.csv`](results/oneway_throughput_summary.csv).
+
+## Symmetric RTT/2 saturation and latency
 
 Values are RTT/2 microseconds. The 250,000 and 700,000 rows show the range across two accepted runs; the other accepted rows have one run.
 
@@ -137,7 +157,7 @@ That 0.01% result is not strong evidence of a general tail improvement. Both rep
 
 The impairment method further biases the comparison in FEC's favor. Loss is injected in the sender before `sendmmsg`. A dropped datagram therefore never enters the kernel, consumes socket-buffer space, or uses NIC transmission time. Real in-flight loss would charge the sender the complete transmit cost before the packet disappeared, making FEC more expensive relative to FEC-off than this matrix shows. The results must not be described as `tc netem` or on-wire loss.
 
-Throughput is the larger practical FEC cost. FEC-off delivered exactly at 725,000 messages/s and failed at 750,000. FEC k=8 was exact at 250,000 messages/s but already lapped the sender ring in the 400,000 calibration and again at 500,000. Its demonstrated exact-delivery envelope is therefore roughly one third of the FEC-off ceiling, a much larger penalty than the 250,000-message/s latency table alone suggests.
+Throughput is the larger practical FEC cost in the symmetric RTT/2 pipeline. FEC-off delivered exactly at 725,000 messages/s and failed at 750,000. FEC k=8 was exact at 250,000 messages/s but already lapped the sender ring in the 400,000 calibration and again at 500,000. Its demonstrated exact-delivery envelope is therefore roughly one third of the FEC-off ceiling, a much larger penalty than the 250,000-message/s latency table alone suggests.
 
 The individual loss runs and their spread are retained in [`results/loss_matrix_runs.csv`](results/loss_matrix_runs.csv) and [`results/loss_matrix_summary.csv`](results/loss_matrix_summary.csv).
 
@@ -181,6 +201,26 @@ bash benchmark/run_pipeline_rtt_remote.sh \
 
 For a loss/FEC cell, set `--fec-k` to `0` or `8`, add `--test-drop-pct` with `0.01`, `0.1`, or `1`, and add `--allow-loss`. Such a run is sender-side synthetic impairment, not an on-wire loss test.
 
+### Plain one-way throughput run
+
+```bash
+bash benchmark/run_remote.sh \
+  --tx-host TX_PUBLIC_IP \
+  --rx-hosts RX_PUBLIC_IP \
+  --rx-privates RX_PRIVATE_IP \
+  --ssh-key SSH_KEY_PATH \
+  --remote-repo /home/ubuntu/task \
+  --outdir benchmark/results/reproduction_oneway_1250k \
+  --rate 1250000 \
+  --count 3000000 \
+  --warmup 100000 \
+  --slots 1048576 \
+  --batch-size 32 \
+  --batch-timeout-us 5 \
+  --fec-k 0 \
+  --latency-output none
+```
+
 ### Notebook
 
 ```bash
@@ -199,12 +239,14 @@ The notebook reads only the committed CSV files under `results/`.
 - The FEC saturation boundary is coarse: 250,000 messages/s was exact and 400,000 messages/s lapped. The true boundary was not narrowed further.
 - Fan-out uses three receiver/consumer pairs on one RX host rather than three physical destination hosts.
 - Fan-out performs sequential batch transmission to each destination.
-- Kernel bypass, busy polling, and multi-destination batching were not evaluated.
+- The 1.25M one-way result is finite-run burst capacity. Measured sender processing remained below 0.85M/s, and 2M was not demonstrated.
+- A 1,048,576-slot ring consumes 640 MiB per shared-memory segment. Low-rate latency with that ring was not measured.
+- Kernel bypass, `SO_BUSY_POLL`, and multi-destination batching were not evaluated.
 - The reported values are specific to the listed EC2 placement, CPU isolation, kernel, and ENA configuration.
 
 ## Evidence and references
 
-The compact evidence needed to check every headline result is retained in [`results/`](results/). [`results/measurement_report.md`](results/measurement_report.md) contains the detailed gates, rejected impairment methods, and counter-level interpretation. The notebook presents the same committed CSV data graphically.
+The compact evidence needed to check each result is retained in [`results/`](results/). [`results/measurement_report.md`](results/measurement_report.md) contains the detailed gates, rejected impairment methods, and counter-level interpretation. The notebook presents the same committed CSV data graphically. Local validation output is in [`results/tests.log`](results/tests.log).
 
 Background and implementation references:
 

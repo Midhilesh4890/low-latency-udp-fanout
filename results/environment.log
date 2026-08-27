@@ -1,6 +1,6 @@
 region=us-east-1
 availability_zone=us-east-1d
-placement_group=spectral-session3-m7i4-cluster
+placement_group=cluster_placement_group
 placement_group_strategy=cluster
 instance_type=m7i.4xlarge
 tx_instance=i-07dbc0089a353f057

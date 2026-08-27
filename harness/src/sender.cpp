@@ -215,8 +215,15 @@ Batch make_batch(uint32_t batch_size) {
   batch.lengths.resize(batch_size);
   for (uint32_t i = 0; i < batch_size; ++i) {
     batch.iovecs[i].iov_base = batch.frames[i].data();
+    batch.iovecs[i].iov_len = 0;
     batch.messages[i].msg_hdr.msg_iov = &batch.iovecs[i];
     batch.messages[i].msg_hdr.msg_iovlen = 1;
+    batch.messages[i].msg_hdr.msg_name = nullptr;
+    batch.messages[i].msg_hdr.msg_namelen = 0;
+    batch.messages[i].msg_hdr.msg_control = nullptr;
+    batch.messages[i].msg_hdr.msg_controllen = 0;
+    batch.messages[i].msg_hdr.msg_flags = 0;
+    batch.messages[i].msg_len = 0;
   }
   return batch;
 }
@@ -232,11 +239,6 @@ bool flush_batch(const Config& cfg, const std::vector<int>& sockets, Batch& batc
   if (batch.size == 0) return true;
   for (uint32_t i = 0; i < batch.size; ++i) {
     batch.iovecs[i].iov_len = batch.lengths[i];
-    batch.messages[i].msg_hdr.msg_name = nullptr;
-    batch.messages[i].msg_hdr.msg_namelen = 0;
-    batch.messages[i].msg_hdr.msg_control = nullptr;
-    batch.messages[i].msg_hdr.msg_controllen = 0;
-    batch.messages[i].msg_hdr.msg_flags = 0;
     batch.messages[i].msg_len = 0;
   }
   for (int sock : sockets) {
@@ -356,17 +358,19 @@ int main(int argc, char** argv) {
   sockets.reserve(cfg.destinations.size());
   for (const auto& dst : cfg.destinations) sockets.push_back(open_udp_socket(dst, cfg.sndbuf, cfg.rcvbuf, cfg.echo_out_shm.empty() ? 0 : cfg.echo_timeout_ms));
 
-  fprintf(stderr, "sender: in_shm=%s slots=%u targets=%zu count=%llu from_edge=%s sndbuf=%d repeat=%u batch_size=%u batch_timeout_us=%llu fec_k=%u fec_timeout_us=%llu test_drop_pct=%.6f test_reorder_pct=%.6f test_reorder_delay_us=%llu test_seed=%llu orderbook_size=%zu worst_datagram=%zu echo_out_shm=%s rcvbuf=%d echo_timeout_ms=%llu\n",
+  const bool plain_fast_path = cfg.fec_k == 0 && cfg.test_drop_pct == 0.0 && cfg.test_reorder_pct == 0.0 && cfg.echo_out_shm.empty();
+  fprintf(stderr, "sender: in_shm=%s slots=%u targets=%zu count=%llu from_edge=%s sndbuf=%d repeat=%u batch_size=%u batch_timeout_us=%llu fec_k=%u fec_timeout_us=%llu test_drop_pct=%.6f test_reorder_pct=%.6f test_reorder_delay_us=%llu test_seed=%llu orderbook_size=%zu worst_datagram=%zu echo_out_shm=%s rcvbuf=%d echo_timeout_ms=%llu fast_path=%s\n",
           cfg.in_shm.c_str(), cfg.slots, sockets.size(), static_cast<unsigned long long>(cfg.count), cfg.from_edge ? "true" : "false",
           cfg.sndbuf, cfg.repeat, cfg.batch_size, static_cast<unsigned long long>(cfg.batch_timeout_us), cfg.fec_k,
           static_cast<unsigned long long>(cfg.fec_timeout_us), cfg.test_drop_pct, cfg.test_reorder_pct,
           static_cast<unsigned long long>(cfg.test_reorder_delay_us), static_cast<unsigned long long>(cfg.test_seed), sizeof(msg::OrderBook),
           sizeof(fec::Envelope) + sizeof(uint16_t) + sizeof(msg::OrderBook), cfg.echo_out_shm.empty() ? "none" : cfg.echo_out_shm.c_str(), cfg.rcvbuf,
-          static_cast<unsigned long long>(cfg.echo_timeout_ms));
+          static_cast<unsigned long long>(cfg.echo_timeout_ms), plain_fast_path ? "true" : "false");
 
   uint64_t read_index = cfg.from_edge ? ring.live_edge() : 0;
   uint64_t sent = 0;
   uint64_t lapped_events = 0;
+  uint64_t skipped_messages = 0;
   uint64_t fec_parity_sent = 0;
   uint64_t fec_closed_by_k = 0;
   uint64_t fec_closed_by_timeout = 0;
@@ -379,6 +383,7 @@ int main(int argc, char** argv) {
   const uint64_t batch_timeout_ns = cfg.batch_timeout_us * 1000ull;
   const uint64_t fec_timeout_ns = cfg.fec_timeout_us * 1000ull;
   uint64_t last_progress = util::now_ns();
+  bool idle_terminated = false;
   uint64_t fec_first_ns = 0;
   uint64_t fec_last_arrival_ns = 0;
   uint32_t fec_gen_id = 0;
@@ -391,6 +396,7 @@ int main(int argc, char** argv) {
   std::uniform_real_distribution<double> dist(0.0, 100.0);
   Batch batch = make_batch(cfg.batch_size);
   SendCounters send_counters;
+  const uint64_t sender_start_ns = util::now_ns();
 
   auto close_generation = [&](uint32_t reason) -> bool {
     if (cfg.fec_k == 0 || encoder.empty()) return true;
@@ -426,13 +432,54 @@ int main(int argc, char** argv) {
       }
     }
 
+    if (plain_fast_path) {
+      bool made_progress = false;
+      while (batch.size < cfg.batch_size && (cfg.count == 0 || sent < cfg.count)) {
+        uint32_t len = 0;
+        uint64_t resume = 0;
+        auto st = ring.read(read_index, batch.frames[batch.size].data(), &len, &resume);
+        if (st == shm::Ring::FrameStatus::kOk) {
+          fec_data_bytes += len;
+          batch.lengths[batch.size] = len;
+          if (batch.size == 0) batch.first_ns = loop_now;
+          ++batch.size;
+          ++sent;
+          ++read_index;
+          made_progress = true;
+        } else if (st == shm::Ring::FrameStatus::kLapped) {
+          ++lapped_events;
+          if (resume > read_index) skipped_messages += resume - read_index;
+          read_index = resume;
+          break;
+        } else {
+          break;
+        }
+      }
+      if (batch.size >= cfg.batch_size && !flush_batch(cfg, sockets, batch, send_counters)) {
+        close_sockets(sockets);
+        return 1;
+      }
+      if (made_progress) last_progress = loop_now;
+      if (batch.size != 0 && !flush_batch(cfg, sockets, batch, send_counters)) {
+        close_sockets(sockets);
+        return 1;
+      }
+      if (made_progress) continue;
+      const uint64_t now_ns = util::now_ns();
+      if (now_ns - last_progress > idle_ns) {
+        idle_terminated = true;
+        break;
+      }
+      continue;
+    }
+
     uint32_t len = 0;
     uint64_t resume = 0;
     auto st = ring.read(read_index, frame, &len, &resume);
 
     if (st == shm::Ring::FrameStatus::kOk) {
       if (cfg.fec_k != 0) {
-        const uint64_t fec_arrival_ns = util::now_ns();
+        const uint64_t fec_arrival_ns = loop_now;
         if (fec_last_arrival_ns != 0) fec_arrival_intervals.push_back(fec_arrival_ns - fec_last_arrival_ns);
         fec_last_arrival_ns = fec_arrival_ns;
       }
@@ -443,7 +490,7 @@ int main(int argc, char** argv) {
           return 1;
         }
       } else {
-        if (encoder.empty()) fec_first_ns = util::now_ns();
+        if (encoder.empty()) fec_first_ns = loop_now;
         const uint16_t index = encoder.size();
         if (!encoder.add(frame, static_cast<uint16_t>(len))) {
           close_sockets(sockets);
@@ -464,9 +511,10 @@ int main(int argc, char** argv) {
       }
       ++sent;
       ++read_index;
-      last_progress = util::now_ns();
+      last_progress = loop_now;
     } else if (st == shm::Ring::FrameStatus::kLapped) {
       ++lapped_events;
+      if (resume > read_index) skipped_messages += resume - read_index;
       read_index = resume;
     } else {
       const uint64_t now_ns = util::now_ns();
@@ -478,7 +526,10 @@ int main(int argc, char** argv) {
         close_sockets(sockets);
         return 1;
       }
-      if (now_ns - last_progress > idle_ns) break;
+      if (now_ns - last_progress > idle_ns) {
+        idle_terminated = true;
+        break;
+      }
     }
   }
 
@@ -510,11 +561,17 @@ int main(int argc, char** argv) {
     }
   }
 
+  const uint64_t sender_duration_ns = util::now_ns() - sender_start_ns;
+  const uint64_t sender_active_ns = idle_terminated && sender_duration_ns > idle_ns ? sender_duration_ns - idle_ns : sender_duration_ns;
+  const double effective_rate = sender_active_ns == 0 ? 0.0 : static_cast<double>(sent) * 1000000000.0 / static_cast<double>(sender_active_ns);
   const Distribution arrival_stats = distribution(fec_arrival_intervals);
   const double fec_overhead_pct = fec_data_bytes == 0 ? 0.0 : static_cast<double>(fec_parity_bytes) * 100.0 / static_cast<double>(fec_data_bytes);
-  fprintf(stderr, "sender: sent=%llu packets=%llu echoed=%llu lapped=%llu sendmmsg_calls=%llu send_calls=%llu max_sendmmsg_batch=%u fec_parity_sent=%llu fec_closed_by_k=%llu fec_closed_by_timeout=%llu fec_closed_by_flush=%llu fec_data_bytes=%llu fec_parity_bytes=%llu fec_overhead_pct=%.6f fec_arrival_p50_ns=%llu fec_arrival_p99_ns=%llu fec_arrival_max_ns=%llu test_dropped=%llu test_reordered=%llu\n",
+  fprintf(stderr, "sender: sent=%llu packets=%llu echoed=%llu lapped=%llu skipped=%llu fast_path=%s duration_ns=%llu active_ns=%llu idle_terminated=%s effective_rate=%.3f sendmmsg_calls=%llu send_calls=%llu max_sendmmsg_batch=%u fec_parity_sent=%llu fec_closed_by_k=%llu fec_closed_by_timeout=%llu fec_closed_by_flush=%llu fec_data_bytes=%llu fec_parity_bytes=%llu fec_overhead_pct=%.6f fec_arrival_p50_ns=%llu fec_arrival_p99_ns=%llu fec_arrival_max_ns=%llu test_dropped=%llu test_reordered=%llu\n",
           static_cast<unsigned long long>(sent), static_cast<unsigned long long>(send_counters.packets), static_cast<unsigned long long>(echo_state.received),
           static_cast<unsigned long long>(lapped_events),
+          static_cast<unsigned long long>(skipped_messages), plain_fast_path ? "true" : "false",
+          static_cast<unsigned long long>(sender_duration_ns), static_cast<unsigned long long>(sender_active_ns),
+          idle_terminated ? "true" : "false", effective_rate,
           static_cast<unsigned long long>(send_counters.sendmmsg_calls), static_cast<unsigned long long>(send_counters.send_calls), send_counters.max_sendmmsg_batch,
           static_cast<unsigned long long>(fec_parity_sent), static_cast<unsigned long long>(fec_closed_by_k),
           static_cast<unsigned long long>(fec_closed_by_timeout), static_cast<unsigned long long>(fec_closed_by_flush),

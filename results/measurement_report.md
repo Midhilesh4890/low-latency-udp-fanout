@@ -2,23 +2,22 @@
 
 ## Outcome
 
-The measurements cover loss/FEC behavior, saturation, fan-out scaling, and clock validation. The transport configuration remained fixed throughout the accepted comparisons.
+The measurements cover one-way throughput, loss/FEC behavior, symmetric RTT/2 saturation, fan-out scaling, and clock validation.
 
-The principal findings are:
+Measured findings:
 
+- Plain one-way delivery with the FEC-off fast path and a 1,048,576-slot ring was exact at 1.25M messages/s in two 3,000,000-message repetitions. It failed at 1.375M in two repetitions. Sender processing remained about 0.80-0.84M messages/s, so 1.25M is finite-run burst capacity and does not establish sustainable 1.25M or 2M throughput.
 - At 250 kmsg/s and 0.01% sender-side loss per direction, FEC k=8 delivered all 3,000,000 measured messages. This was the only tested loss level where FEC's median percentiles were not uniformly worse, but two repetitions with one fixed loss pattern do not establish a latency improvement.
 - At 0.1% and 1% loss, FEC reduced missing messages by about 158x and 13x respectively, but its median latency percentiles were worse than FEC-off. It therefore improves delivery completeness without improving the scored percentiles at those loss levels.
 - The FEC-off symmetric pipeline delivered exactly through 725 kmsg/s. At 750 kmsg/s the forward sender lapped its input ring 55,349 times, so the exact-delivery ceiling is bracketed at 725-750 kmsg/s. Tail latency has already collapsed at 725 kmsg/s.
 - Fan-out is exact for one and two receivers at a 275 kmsg/s source rate and for three receivers at 250 kmsg/s. Three receivers at 275 kmsg/s fail sender completion. A one-receiver control at the equivalent aggregate rate of 825 kdatagrams/s also fails, so the evidence does not isolate the sequential destination loop as the sole cause.
-- The Ubuntu measurement hosts exposed no PHC. Chrony tuning did not validate sub-microsecond cross-host agreement, and a later ENA PHC probe had hardware-error bounds above 22 us. The organizer-approved full-pipeline RTT/2 method remains the reportable latency method.
+- The Ubuntu measurement hosts exposed no PHC. Chrony tuning did not validate sub-microsecond cross-host agreement, and a later ENA PHC probe had hardware-error bounds above 22 us. Latency therefore uses the full-pipeline same-clock RTT/2 method.
 
-Compact data is in [loss_matrix_runs.csv](loss_matrix_runs.csv), [loss_matrix_summary.csv](loss_matrix_summary.csv), [saturation_summary.csv](saturation_summary.csv), and [fanout_summary.csv](fanout_summary.csv). The repository-level [analysis notebook](../analysis.ipynb) reads only these committed files.
+Compact data is in [oneway_throughput_runs.csv](oneway_throughput_runs.csv), [oneway_throughput_summary.csv](oneway_throughput_summary.csv), [loss_matrix_runs.csv](loss_matrix_runs.csv), [loss_matrix_summary.csv](loss_matrix_summary.csv), [saturation_summary.csv](saturation_summary.csv), and [fanout_summary.csv](fanout_summary.csv). The repository-level [analysis notebook](../analysis.ipynb) reads only these committed files.
 
 ## Transport under test
 
-The source revision is 9a2ca8c and the loss-aware runner revision is e616a3e.
-
-The transport uses UDP datagrams between hosts and shared-memory rings at the fixed producer/consumer boundaries. The sender batches with sendmmsg, default batch size 32 and a 5 us timeout in the report-grade runs. The receiver validates framing, publishes accepted messages to shared memory, and uses a 65,536-message dedupe window.
+The transport uses UDP datagrams between hosts and shared-memory rings at the fixed producer/consumer boundaries. The sender batches with sendmmsg, default batch size 32 and a 5 us timeout in latency runs. For FEC-off sends without impairment or echo mode, it reads the ring directly into owned batch buffers and fills a batch using one loop timestamp. Other configurations use the generic path. The receiver validates framing, publishes accepted messages to shared memory, and uses a 65,536-message dedupe window.
 
 Optional XOR FEC groups eight data messages and emits one parity datagram. Data is transmitted immediately; parity can recover one missing data datagram per generation. The cost is approximately 22% additional bytes in the observed k=8 runs, including the FEC envelope. FEC-off remains the low-latency/default measurement mode in the runners.
 
@@ -100,7 +99,25 @@ At 0.1%, FEC reduces median missing messages from 6,241 to 39.5 but worsens p50,
 
 Undelivered messages produce no latency sample, while recovered messages do enter the distribution with recovery delay. The table therefore reports percentiles and delivered counts together but does not treat delivery loss as a second optimization objective. The data supports no claimed FEC latency win; k=8 is clearly slower at 0%, 0.1%, and 1%, while the 0.01% result is inconclusive.
 
-## Saturation
+## Plain one-way throughput
+
+The one-way topology runs producer and sender on TX and receiver and consumer on RX. It has no return path. Cross-host latency is not reported.
+
+| Sender | Ring slots | Offered rate | Repetitions | Result | Sender processing |
+|---|---:|---:|---:|---|---:|
+| Original | 65,536 | 1M/s | 1 | failed | not instrumented |
+| Original | 262,144 | 1M/s | 1 | failed | not instrumented |
+| Original | 1,048,576 | 1M/s | 2 | exact | backlog drained after producer |
+| Original | 1,048,576 | 1.25M/s | 2 | failed | not instrumented |
+| FEC-off fast path | 65,536 | 1M/s | 2 | failed | 0.849-0.855M/s |
+| FEC-off fast path | 1,048,576 | 1.25M/s | 2 | exact | 0.819-0.829M/s |
+| FEC-off fast path | 1,048,576 | 1.375M/s | 2 | failed | 0.802-0.840M/s |
+
+The 1,048,576-slot ring occupies 640 MiB per shared-memory segment, compared with 40 MiB for 65,536 slots and 160 MiB for 262,144 slots. The original code became exact at 1M only because the large ring held the finite backlog. It failed at 1.25M in both repetitions.
+
+The fast path removes the second payload copy for plain FEC-off sends and fills a batch with one loop timestamp. It also records the exact number of source messages skipped when the reader is lapped. With the large ring, it raised the repeatable finite-run boundary to 1.25M exact and 1.375M failed. At 1.25M the sender needed 3.74-3.79 seconds to process 3.1 million messages, so the producer completed first and the sender drained afterward. This is burst capacity, not sustained 1.25M throughput. No run demonstrated 2M.
+
+## Symmetric RTT/2 saturation
 
 Only zero-loss, FEC-off runs enter the main saturation bracket.
 
@@ -133,11 +150,11 @@ Fan-out consumers run on RX and do not share the producer clock, so fan-out late
 
 The three-receiver boundary is reproduced at 250 kmsg/s clean and 275 kmsg/s failed. The 1/2/3 matched-source controls show that adding the third destination crosses the capacity boundary at 275 kmsg/s. However, the one-destination 825 kdatagrams/s control also fails, so the data supports a sender aggregate-capacity limitation and does not prove that the sequential destination loop alone is responsible.
 
-## Acceptance and rejected runs
+## Validity checks
 
-Acceptance gates reject any run with sender/relay ring laps, receiver rejects, incomplete counters, or missing manifests.
+A valid run has zero sender/relay ring laps, zero receiver rejects, complete counters, and a complete manifest.
 
-Remote RTT result directories accumulated under /tmp during the saturation sweep and eventually filled the TX root volume while a latency file was being written. Apparent late failures at 650-725 kmsg/s from that period are excluded. The benchmark-owned remote copies were deleted after their local results were preserved, freeing 4.3 GB. Clean-disk reruns produced the accepted 700 and 725 kmsg/s points and the rejected 750 kmsg/s boundary. The runner now removes its remote temporary directory after each run.
+Runs affected by TX root-volume exhaustion are excluded. Clean-disk reruns produced the accepted 700 and 725 kmsg/s points and the rejected 750 kmsg/s boundary.
 
 No result from the rejected netem, iptables, disk-full, FEC-overload, or incomplete fan-out attempts enters an accepted latency aggregate.
 
@@ -181,16 +198,10 @@ Raw per-message files are intentionally excluded. The committed per-run and aggr
 - Repeated loss runs use the same deterministic drop pattern.
 - FEC k=8 and 200 us timeout are evaluated, not exhaustively tuned.
 - Fan-out uses multiple receiver/consumer pairs on one RX host, not three physical RX hosts.
+- The 1.25M one-way result depends on a 640 MiB ring and finite test duration. It is not sustainable 1.25M throughput.
+- No exact 2M run was demonstrated.
 - The 725 kmsg/s point is an exact-delivery ceiling observation, not a recommended low-latency operating rate.
-
-## Teardown
-
-AWS confirmed both measurement instances terminated. Their two root volume IDs no
-longer resolve, and filter-based checks returned empty lists for measurement ENIs,
-the child cluster placement group, the precision-time parent placement group,
-and the measurement security group. No measurement EC2 resource remains billable after
-teardown.
 
 ## Final recommendation
 
-Keep FEC disabled by default for latency-first operation. The only loss level where FEC's percentiles were not worse was 0.01%, and that result does not exceed the observed run-to-run variance. At 0.1% and 1%, FEC improves delivery completeness but worsens every scored percentile. Its demonstrated exact throughput envelope is also roughly one-third of FEC-off. Treat 725 kmsg/s as the exact-delivery ceiling and operate below the sharp tail knee. The documented three-receiver exact-delivery point is 250 kmsg/s.
+Keep FEC disabled by default for latency-first operation. The only loss level where FEC's percentiles were not worse was 0.01%, and that result does not exceed the observed run-to-run variance. At 0.1% and 1%, FEC improves delivery completeness but worsens every scored percentile. Its demonstrated exact throughput envelope is also roughly one-third of FEC-off. The symmetric RTT/2 exact ceiling is 725 kmsg/s and its latency knee is lower. Plain one-way finite delivery is repeatable at 1.25M with the 1,048,576-slot ring, but measured sender processing remains below 0.85M/s. The documented three-receiver exact-delivery point is 250 kmsg/s.

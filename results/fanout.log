@@ -1,5 +1,4 @@
 topology=one_TX_producer_and_multidestination_sender_to_one_RX_host_with_distinct_receiver_consumer_pairs
-revision=e5fb156
 clock_method=none
 latency_status=excluded_cross_host_timestamps_not_synchronized
 count_per_consumer=3000000
@@ -25,4 +24,4 @@ three_receiver_datagram_rate_bracket=750000_clean_to_825000_failed
 
 Fan-out latency values printed by remote consumers are not evidence because producer timestamps originate on TX and consumer timestamps originate on RX while clock_sync.method=none. This phase measures delivery and scaling only.
 
-The first 500k three-receiver attempt was rejected before traffic because sequential readiness checks exceeded 30-second process idle windows. Commit e5fb156 added a manifest-recorded 120-second startup allowance and source revision. The subsequent failures listed above occur after traffic starts and are capacity failures, not startup failures.
+Rejected startup-only attempts are excluded. The listed failed fan-out runs reached traffic start and are capacity failures.

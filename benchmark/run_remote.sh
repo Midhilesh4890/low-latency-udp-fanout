@@ -40,7 +40,7 @@ run_order_index=""
 p9999_grade="true"
 run_label=""
 source_revision="HEAD"
-startup_idle_ms="120000"
+startup_idle_ms="45000"
 
 usage() {
   printf '%s\n' "usage: bash benchmark/run_remote.sh --tx-host HOST --rx-hosts HOSTS --rx-privates IPS [--outdir DIR] [--rate N] [--count N] [--warmup N] [--fanout N]"
@@ -330,8 +330,11 @@ register_pid "$tx_host" "$remote_base/tx/sender.pid" "tx sender"
 wait_remote "$tx_host" 10 "producer pid" "[[ -s '$remote_base/tx/producer.pid' ]]"
 wait_remote "$tx_host" 10 "sender pid" "[[ -s '$remote_base/tx/sender.pid' ]]"
 
-wait_remote_pid_exit "$tx_host" "$remote_base/tx/sender.pid" "sender" "$completion_seconds"
+measurement_start_ns="$(date +%s%N)"
 wait_remote_pid_exit "$tx_host" "$remote_base/tx/producer.pid" "producer" 30
+producer_exit_ns="$(date +%s%N)"
+wait_remote_pid_exit "$tx_host" "$remote_base/tx/sender.pid" "sender" "$completion_seconds"
+sender_exit_ns="$(date +%s%N)"
 for entry in "${rx_remote_dirs[@]}"; do
   host="${entry%%|*}"
   rest="${entry#*|}"
@@ -350,6 +353,12 @@ done
 
 mkdir -p "$outdir/tx"
 rsync_from "$tx_host" "$remote_base/tx/" "$outdir/tx/"
+run_valid="true"
+failure_reasons=()
+if ! grep -Eq "sent=$total_count .*lapped=0" "$outdir/tx/sender.log"; then
+  run_valid="false"
+  failure_reasons+=("sender did not deliver the full source stream without lapping")
+fi
 for entry in "${rx_remote_dirs[@]}"; do
   host="${entry%%|*}"
   rest="${entry#*|}"
@@ -357,19 +366,30 @@ for entry in "${rx_remote_dirs[@]}"; do
   remote_rx="${rest#*|}"
   mkdir -p "$outdir/$rx_name"
   rsync_from "$host" "$remote_rx/" "$outdir/$rx_name/"
-  grep -q "received     : $count" "$outdir/$rx_name/consumer.log"
-  grep -q "dropped      : 0" "$outdir/$rx_name/consumer.log"
-  grep -q "published=$total_count" "$outdir/$rx_name/receiver.log"
+  if ! grep -q "received     : $count" "$outdir/$rx_name/consumer.log"; then
+    run_valid="false"
+    failure_reasons+=("$rx_name consumer count mismatch")
+  fi
+  if ! grep -q "dropped      : 0" "$outdir/$rx_name/consumer.log"; then
+    run_valid="false"
+    failure_reasons+=("$rx_name consumer reported drops")
+  fi
+  if ! grep -q "published=$total_count" "$outdir/$rx_name/receiver.log"; then
+    run_valid="false"
+    failure_reasons+=("$rx_name receiver publication deficit")
+  fi
   if [[ "$latency_output" != "none" ]]; then
     if [[ ! -s "$outdir/$rx_name/latency.csv" ]] || [[ "$(wc -l < "$outdir/$rx_name/latency.csv")" -le 1 ]]; then
       printf '%s\n' "consumer produced no rows for $rx_name" >"$outdir/$rx_name/FAILURE"
-      exit 1
+      run_valid="false"
+      failure_reasons+=("$rx_name consumer produced no latency rows")
     fi
   fi
 done
 
 end_ns="$(date +%s%N)"
-export RUN_RATE="$rate" RUN_COUNT="$count" RUN_WARMUP="$warmup" RUN_SLOTS="$slots" RUN_TYPE="$message_type" RUN_PORT="$base_port" RUN_FANOUT="$fanout" RUN_SNDBUF="$sndbuf" RUN_RCVBUF="$rcvbuf" RUN_FEC_K="$fec_k" RUN_FEC_TIMEOUT_US="$fec_timeout_us" RUN_BATCH_SIZE="$batch_size" RUN_BATCH_TIMEOUT_US="$batch_timeout_us" RUN_TX_HOST="$tx_host" RUN_RX_HOSTS="$rx_hosts" RUN_INSTANCE_TYPE="$instance_type" RUN_AZ="$az" RUN_PLACEMENT_GROUP_TYPE="$placement_group_type" RUN_CLOCK_METHOD="$clock_method" RUN_CLOCK_RESIDUAL_BOUND_NS="$clock_residual_bound_ns" RUN_NIC_DRIVER_VERSION="$nic_driver_version" RUN_ISOLATED_CORES="$isolated_cores" RUN_MTU="$mtu" RUN_OUTDIR="$outdir" RUN_DURATION_NS="$((end_ns - start_ns))" RUN_CPU_PRODUCER="$cpu_producer" RUN_CPU_SENDER="$cpu_sender" RUN_CPU_RECEIVER="$cpu_receiver" RUN_CPU_CONSUMER="$cpu_consumer" RUN_CPU_RECEIVERS="$cpu_receivers" RUN_CPU_CONSUMERS="$cpu_consumers" RUN_ORDER_INDEX="$run_order_index" RUN_P9999_GRADE="$p9999_grade" RUN_LABEL="$run_label" RUN_LATENCY_OUTPUT="$latency_output" RUN_SOURCE_REVISION="$source_revision" RUN_STARTUP_IDLE_MS="$startup_idle_ms"
+failure_text="$(IFS=';'; printf '%s' "${failure_reasons[*]}")"
+export RUN_RATE="$rate" RUN_COUNT="$count" RUN_WARMUP="$warmup" RUN_SLOTS="$slots" RUN_TYPE="$message_type" RUN_PORT="$base_port" RUN_FANOUT="$fanout" RUN_SNDBUF="$sndbuf" RUN_RCVBUF="$rcvbuf" RUN_FEC_K="$fec_k" RUN_FEC_TIMEOUT_US="$fec_timeout_us" RUN_BATCH_SIZE="$batch_size" RUN_BATCH_TIMEOUT_US="$batch_timeout_us" RUN_TX_HOST="$tx_host" RUN_RX_HOSTS="$rx_hosts" RUN_INSTANCE_TYPE="$instance_type" RUN_AZ="$az" RUN_PLACEMENT_GROUP_TYPE="$placement_group_type" RUN_CLOCK_METHOD="$clock_method" RUN_CLOCK_RESIDUAL_BOUND_NS="$clock_residual_bound_ns" RUN_NIC_DRIVER_VERSION="$nic_driver_version" RUN_ISOLATED_CORES="$isolated_cores" RUN_MTU="$mtu" RUN_OUTDIR="$outdir" RUN_DURATION_NS="$((end_ns - start_ns))" RUN_CPU_PRODUCER="$cpu_producer" RUN_CPU_SENDER="$cpu_sender" RUN_CPU_RECEIVER="$cpu_receiver" RUN_CPU_CONSUMER="$cpu_consumer" RUN_CPU_RECEIVERS="$cpu_receivers" RUN_CPU_CONSUMERS="$cpu_consumers" RUN_ORDER_INDEX="$run_order_index" RUN_P9999_GRADE="$p9999_grade" RUN_LABEL="$run_label" RUN_LATENCY_OUTPUT="$latency_output" RUN_SOURCE_REVISION="$source_revision" RUN_STARTUP_IDLE_MS="$startup_idle_ms" RUN_MEASUREMENT_START_NS="$measurement_start_ns" RUN_PRODUCER_EXIT_NS="$producer_exit_ns" RUN_SENDER_EXIT_NS="$sender_exit_ns" RUN_ACCEPTED="$run_valid" RUN_FAILURE_REASONS="$failure_text"
 python3 - "$outdir/run.json" <<'PY'
 import json
 import os
@@ -426,11 +446,20 @@ data = {
     "isolated_cores": os.environ["RUN_ISOLATED_CORES"],
     "mtu": os.environ["RUN_MTU"],
     "wall_clock_duration_s": integer("RUN_DURATION_NS") / 1000000000.0,
+    "process_timing": {
+        "producer_completion_s": (integer("RUN_PRODUCER_EXIT_NS") - integer("RUN_MEASUREMENT_START_NS")) / 1000000000.0,
+        "sender_completion_s": (integer("RUN_SENDER_EXIT_NS") - integer("RUN_MEASUREMENT_START_NS")) / 1000000000.0,
+        "sender_drain_after_producer_s": max(0, integer("RUN_SENDER_EXIT_NS") - integer("RUN_PRODUCER_EXIT_NS")) / 1000000000.0
+    },
+    "validation": {
+        "accepted": os.environ["RUN_ACCEPTED"] == "true",
+        "failure_reasons": [value for value in os.environ.get("RUN_FAILURE_REASONS", "").split(";") if value]
+    },
     "clock_sync": {
         "method": os.environ["RUN_CLOCK_METHOD"],
         "max_drift_ns": integer("RUN_CLOCK_RESIDUAL_BOUND_NS", 0) if os.environ.get("RUN_CLOCK_RESIDUAL_BOUND_NS") else None
     },
-    "exit_code": 0
+    "exit_code": 0 if os.environ["RUN_ACCEPTED"] == "true" else 1
 }
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
     json.dump(data, handle, indent=2, sort_keys=True)
@@ -439,3 +468,6 @@ PY
 
 trap - EXIT INT TERM
 cleanup_remote
+if [[ "$run_valid" != "true" ]]; then
+  exit 1
+fi

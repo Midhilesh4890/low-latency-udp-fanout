@@ -1,7 +1,6 @@
 topology=producer(TX)->sender(TX)->receiver(RX)->relay(RX)->sender(RX)->receiver(TX)->consumer(TX)
 clock_method=same_clock_symmetric_pipeline_rtt_half
 statement=RTT/2 averages two complete receiver decode/dedupe stages and four shared-memory hops; it is not directional one-way latency
-revision=4d4fdad
 warmup=100000
 count=3000000
 batch_size=32

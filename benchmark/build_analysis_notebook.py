@@ -20,11 +20,11 @@ def cell(cell_type, source):
 cells = [
     cell(
         "markdown",
-        """# EC2 transport analysis: loss, saturation, and fan-out
+        """# EC2 transport analysis: one-way throughput, loss, saturation, and fan-out
 
 This notebook reads the committed CSV tables under `results/`.
 
-Latency uses the organizer-approved symmetric topology producer -> sender -> receiver -> relay -> sender -> receiver -> consumer. Both timestamps are on TX, and values below are full-pipeline RTT divided by two. They are one-way-equivalent estimates, not directional one-way measurements.
+Latency uses the symmetric topology producer -> sender -> receiver -> relay -> sender -> receiver -> consumer. Both timestamps are on TX, and values below are full-pipeline RTT divided by two. They are one-way-equivalent estimates, not directional one-way measurements.
 
 The loss matrix uses 250k messages/s, 3,000,000 measured messages after 100,000 warm-up messages, two repetitions, and deterministic sender-side packet loss in both network directions. tc netem attempts were rejected because even a 0% qdisc changed throughput at 500k. Fan-out latency is intentionally absent because its producer and consumers use different clocks.
 """,
@@ -43,6 +43,42 @@ runs = pd.read_csv(report_dir / "loss_matrix_runs.csv")
 loss = pd.read_csv(report_dir / "loss_matrix_summary.csv")
 saturation = pd.read_csv(report_dir / "saturation_summary.csv")
 fanout = pd.read_csv(report_dir / "fanout_summary.csv")
+oneway = pd.read_csv(report_dir / "oneway_throughput_runs.csv")
+oneway_summary = pd.read_csv(report_dir / "oneway_throughput_summary.csv")
+""",
+    ),
+    cell(
+        "markdown",
+        """## Plain one-way throughput
+
+These runs use a delivery-only topology: producer and sender on TX, receiver and consumer on RX, one receiver, FEC disabled, no synthetic impairment, and no cross-host latency reporting. Accepted means exactly 3,000,000 measured messages consumed, zero consumer drops, zero sender laps, and complete receiver publication.
+
+The 1,048,576-slot ring delivers finite 3,000,000-message bursts at 1.25M messages/s after the FEC-off sender fast path. It fails at 1.375M in both repetitions. Sender active throughput remains about 0.82-0.84M messages/s, so the larger ring is burst capacity rather than sustainable 1.25M throughput.
+""",
+    ),
+    cell(
+        "code",
+        """oneway_summary
+""",
+    ),
+    cell(
+        "code",
+        """fig, ax = plt.subplots(figsize=(8, 4.5))
+plot_runs = oneway[oneway["phase"].eq("fast_path")]
+accepted = plot_runs[plot_runs["accepted"]]
+failed = plot_runs[~plot_runs["accepted"]]
+ax.scatter(accepted["offered_rate"] / 1_000_000, accepted["ring_slots"], label="accepted", color="tab:green")
+ax.scatter(failed["offered_rate"] / 1_000_000, failed["ring_slots"], label="failed", color="tab:red")
+for _, row in plot_runs.dropna(subset=["sender_effective_rate"]).iterrows():
+    rate_m = row["sender_effective_rate"] / 1_000_000
+    ax.text(row["offered_rate"] / 1_000_000, row["ring_slots"], f"{rate_m:.2f}", fontsize=8, ha="center", va="bottom")
+ax.set_yscale("log", base=2)
+ax.set_xlabel("Offered source rate (Mmsg/s)")
+ax.set_ylabel("Ring slots")
+ax.set_title("Plain one-way finite-run delivery; labels show sender Mmsg/s")
+ax.grid(True, which="both", alpha=0.3)
+ax.legend()
+plt.show()
 """,
     ),
     cell(
@@ -112,7 +148,7 @@ Loss is injected in the sender before `sendmmsg`, so a dropped datagram consumes
     ),
     cell(
         "markdown",
-        """## Saturation
+        """## Symmetric RTT/2 saturation
 
 Accepted means exact delivery with zero sender/relay laps and zero receiver rejects. The first rejected clean-disk point is retained to show the failure mechanism.
 """,
@@ -148,9 +184,9 @@ Fan-out is delivery-only evidence. One and two destinations are exact at a 275k 
         "markdown",
         """## Clock and impairment caveats
 
-The Ubuntu measurement hosts exposed no PHC. Aggressive Amazon Time Sync polling and direct LAN chrony interleaved mode were both tested. Chrony status could display sub-microsecond correction, but independent bidirectional probes disagreed by several microseconds, so cross-host one-way subtraction was rejected. A later Amazon Linux 2023 probe exposed the ENA PHC after enabling `ena.phc_enable=1`, but hardware-error bounds of 22.735 us and 28.038 us were still too large for the target latency. The approved RTT/2 method remained the reportable clock method.
+The Ubuntu measurement hosts exposed no PHC. Aggressive Amazon Time Sync polling and direct LAN chrony interleaved mode were both tested. Chrony status could display sub-microsecond correction, but independent bidirectional probes disagreed by several microseconds, so cross-host one-way subtraction was rejected. A later Amazon Linux 2023 probe exposed the ENA PHC after enabling `ena.phc_enable=1`, but hardware-error bounds of 22.735 us and 28.038 us were still too large for the target latency. The RTT/2 method remained the reportable clock method.
 
-Filtered root qdisc, mq-leaf netem, and ingress IFB netem all changed the zero-loss 500k throughput; a port-specific iptables loss rule caused `sendmmsg` to return EPERM. Those runs are rejected. The accepted matrix therefore uses deterministic loss before `sendmmsg` and is labeled that way in every manifest and table. Because dropped datagrams consume no kernel or NIC transmit work, this method biases the comparison in FEC's favor relative to real in-flight loss.
+Filtered root qdisc, mq-leaf netem, and ingress IFB netem all changed the zero-loss 500k throughput; a port-specific iptables loss rule caused `sendmmsg` to return EPERM. Those runs are rejected. The reported matrix therefore uses deterministic loss before `sendmmsg` and is labeled that way in every manifest and table. Because dropped datagrams consume no kernel or NIC transmit work, this method biases the comparison in FEC's favor relative to real in-flight loss.
 """,
     ),
 ]

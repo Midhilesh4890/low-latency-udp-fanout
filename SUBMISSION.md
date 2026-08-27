@@ -8,7 +8,7 @@ The latency configuration uses a batch size of 32, a 5 microsecond batch timeout
 
 Measured results include:
 
-- In the plain one-way topology, the original 65,536-slot ring was exact at 800,000 messages/s and failed at 1,000,000. A 1,048,576-slot ring made a finite 1,000,000-message/s run exact by buffering backlog. After the FEC-off sender fast path, 1,250,000 messages/s was exact in two 3,000,000-message repetitions, while 1,375,000 failed twice. Sender processing remained about 0.80-0.84 million messages/s at that boundary, so 1.25M is burst capacity, not sustainable throughput. The measurements do not demonstrate 2M.
+- In the plain one-way topology, the original 65,536-slot ring was exact at 800,000 messages/s and failed at 1,000,000. A 1,048,576-slot ring made a finite 1,000,000-message/s run exact by buffering backlog. After the FEC-off sender fast path, 1,250,000 messages/s was exact in two 3,000,000-message repetitions, while 1,375,000 failed twice. Sender processing was 0.819-0.829 million messages/s at that boundary, so 1.25M is burst capacity, not sustainable throughput. The measurements do not demonstrate 2M.
 - In the symmetric RTT/2 topology, zero-loss delivery remained exact through 725,000 source messages/s. At 750,000 messages/s the producer-to-sender shared-memory ring lapped 55,349 times. Tail latency had already collapsed at 725,000 messages/s, so the practical operating knee is lower than the exact-delivery ceiling.
 - Three-destination fan-out delivered exactly at 250,000 source messages/s, or 750,000 transmitted datagrams/s. The sender did not complete at 275,000 source messages/s with three destinations. A one-destination control also failed at the equivalent aggregate rate of 825,000 datagrams/s, identifying aggregate sender capacity rather than proving that destination iteration alone was responsible.
 - FEC reduced missing messages substantially under synthetic loss, but it was slower at every zero-loss percentile and reduced the usable throughput envelope to roughly one third of FEC-off. The data supports keeping FEC disabled for latency-first operation.
@@ -70,6 +70,8 @@ The full environment record is [`results/environment.log`](results/environment.l
 
 ### Latency topology
 
+The RTT/2 measurement approach was confirmed acceptable by the organizers when asked.
+
 Cross-host latency uses a symmetric round trip:
 
 ```text
@@ -94,8 +96,8 @@ The one-way topology places the producer and sender on TX and the receiver and c
 |---|---:|---:|---:|---:|---:|
 | Original | 65,536 | 40 MiB | 800k/s | 1M/s | not instrumented |
 | Original | 1,048,576 | 640 MiB | 1M/s | 1.25M/s | backlog drained after producer completion |
-| FEC-off fast path | 65,536 | 40 MiB | not established | 1M/s | 0.85M/s |
-| FEC-off fast path | 1,048,576 | 640 MiB | 1.25M/s | 1.375M/s | 0.82-0.84M/s at the boundary |
+| FEC-off fast path | 65,536 | 40 MiB | not tested between 800k and 1M | 1M/s | 0.849-0.855M/s |
+| FEC-off fast path | 1,048,576 | 640 MiB | 1.25M/s | 1.375M/s | 0.819-0.829M/s at the boundary |
 
 The fast path removes the ring-slot to stack-buffer to batch-buffer double copy for plain FEC-off sends. It also fills a batch using one loop timestamp and records exact skipped-message counts. The generic path remains active for FEC, sender-side impairment, and echo mode.
 
@@ -239,7 +241,7 @@ The notebook reads only the committed CSV files under `results/`.
 - The FEC saturation boundary is coarse: 250,000 messages/s was exact and 400,000 messages/s lapped. The true boundary was not narrowed further.
 - Fan-out uses three receiver/consumer pairs on one RX host rather than three physical destination hosts.
 - Fan-out performs sequential batch transmission to each destination.
-- The 1.25M one-way result is finite-run burst capacity. Measured sender processing remained below 0.85M/s, and 2M was not demonstrated.
+- The 1.25M one-way result is finite-run burst capacity. Measured sender processing was 0.819-0.829M/s at that boundary, and 2M was not demonstrated.
 - A 1,048,576-slot ring consumes 640 MiB per shared-memory segment. Low-rate latency with that ring was not measured.
 - Kernel bypass, `SO_BUSY_POLL`, and multi-destination batching were not evaluated.
 - The reported values are specific to the listed EC2 placement, CPU isolation, kernel, and ENA configuration.
@@ -256,8 +258,3 @@ Background and implementation references:
 - [AWS local Amazon Time Sync and PHC configuration](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configure-ec2-ntp.html)
 - [AWS ENA Linux driver](https://github.com/amzn/amzn-drivers/tree/master/kernel/linux/ena)
 - [The Tail at Scale](https://research.google/pubs/the-tail-at-scale/)
-
-Supplementary introductions, not measurement evidence:
-
-- [BatchConn — `sendmmsg`/`recvmmsg` in Go](https://medium.com/high-performance-network-programming/batchconn-sendmmsg-recvmmsg-in-go-5c7e94be07c1)
-- [Reducing UDP latency](https://medium.com/@deryugin.denis/reducing-udp-latency-ce60d98c7bff)

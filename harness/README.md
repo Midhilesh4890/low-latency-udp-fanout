@@ -47,4 +47,4 @@ Producer and consumer timestamps are directly comparable only when both processe
 
 ## Runtime model
 
-The producer pacing loop, sender ring reader, and receiver path busy-poll. Report-grade runs pin each process to a distinct isolated physical core and move housekeeping work and interrupts elsewhere. The complete CPU mapping and host configuration are documented in [`../SUBMISSION.md`](../SUBMISSION.md).
+The producer pacing loop, sender ring reader, and receiver path busy-poll. Measurement runs pin each process to a distinct isolated physical core and move housekeeping work and interrupts elsewhere. The complete CPU mapping and host configuration are documented in [`../SUBMISSION.md`](../SUBMISSION.md).

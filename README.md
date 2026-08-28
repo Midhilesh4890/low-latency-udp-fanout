@@ -2,16 +2,12 @@
 
 The [submission write-up](SUBMISSION.md) describes the transport design, measurement method, results, limitations, and reproduction procedure.
 
-Supporting material:
+Submission material:
 
 - [Executed analysis notebook](analysis.ipynb)
 - [Compact measurement evidence](results/)
-- [Transport source](harness/src/)
-- [Benchmark runners](benchmark/)
-- [EC2 provisioning and host preparation](infra/)
+- [Transport source and run instructions](harness/)
 
 Build and test:
 
-```bash
-make -C harness clean all test
-bash benchmark/test_preflight_isolation.sh
+    make -C harness clean all test

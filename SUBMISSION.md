@@ -169,68 +169,15 @@ Keep FEC disabled by default for latency-first operation. Enable `fec_k=8` only 
 
 ## Reproduction
 
-### Build and local tests
+### Build and unit validation
 
-```bash
-make -C harness clean all test
-bash benchmark/test_preflight_isolation.sh
-```
+    make -C harness clean all test
 
-### Host preparation
+### Direct transport run
 
-Use two `m7i.4xlarge` instances in one Availability Zone and cluster placement group. Configure MTU 9001, retain the ENA adaptive moderation defaults, isolate CPUs 1-6, and reserve CPUs 0 and 7 for housekeeping and interrupts. Provisioning and host tuning scripts are under [`infra/`](infra/).
+The sender and receiver can be run directly on two Linux hosts using the commands in [harness/README.md](harness/README.md). Use an m7i.4xlarge instance in one Availability Zone, MTU 9001, ENA defaults, one process per isolated physical core, and CPUs 0 and 7 for housekeeping and interrupts to match the measured environment. Add additional sender destination arguments for fan-out, and set fec-k to 8 on the sender to enable the measured XOR FEC mode.
 
-The repository must exist at the same path on both hosts. After bootstrapping and rebooting, verify that the assigned logical CPUs map to distinct isolated physical cores.
-
-### Symmetric latency run
-
-```bash
-bash benchmark/run_pipeline_rtt_remote.sh \
-  --tx-host TX_PUBLIC_IP \
-  --rx-host RX_PUBLIC_IP \
-  --tx-private TX_PRIVATE_IP \
-  --rx-private RX_PRIVATE_IP \
-  --ssh-key SSH_KEY_PATH \
-  --outdir benchmark/results/reproduction_250k \
-  --rate 250000 \
-  --count 3000000 \
-  --warmup 100000 \
-  --batch-size 32 \
-  --batch-timeout-us 5 \
-  --fec-k 0 \
-  --latency-output disk
-```
-
-For a loss/FEC cell, set `--fec-k` to `0` or `8`, add `--test-drop-pct` with `0.01`, `0.1`, or `1`, and add `--allow-loss`. Such a run is sender-side synthetic impairment, not an on-wire loss test.
-
-### Plain one-way throughput run
-
-```bash
-bash benchmark/run_remote.sh \
-  --tx-host TX_PUBLIC_IP \
-  --rx-hosts RX_PUBLIC_IP \
-  --rx-privates RX_PRIVATE_IP \
-  --ssh-key SSH_KEY_PATH \
-  --remote-repo /home/ubuntu/task \
-  --outdir benchmark/results/reproduction_oneway_1250k \
-  --rate 1250000 \
-  --count 3000000 \
-  --warmup 100000 \
-  --slots 1048576 \
-  --batch-size 32 \
-  --batch-timeout-us 5 \
-  --fec-k 0 \
-  --latency-output none
-```
-
-### Notebook
-
-```bash
-python3 -m pip install -r requirements-analysis.txt
-jupyter nbconvert --to notebook --execute --inplace analysis.ipynb
-```
-
-The notebook reads only the committed CSV files under `results/`.
+The committed notebook has saved outputs and reads only the committed CSV files under results/.
 
 ## Limitations
 

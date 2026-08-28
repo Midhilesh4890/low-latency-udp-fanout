@@ -160,32 +160,13 @@ No result from the rejected netem, iptables, disk-full, FEC-overload, or incompl
 
 ## Reproduction
 
-Build and test:
+Build and validate the transport with:
 
     make -C harness clean all test
-    bash benchmark/test_preflight_isolation.sh
 
-Provision and bootstrap are documented in [infra/README_RUN.md](../infra/README_RUN.md). Use two no-SMT m7i.4xlarge instances in one AZ, MTU 9001, CPUs 1-6 isolated, and ENA defaults.
-
-A matrix cell is run with benchmark/run_pipeline_rtt_remote.sh using:
-
-    --rate 250000
-    --count 3000000
-    --warmup 100000
-    --batch-size 32
-    --batch-timeout-us 5
-    --fec-k 0 or 8
-    --test-drop-pct 0, 0.01, 0.1, or 1
-    --allow-loss for nonzero loss
-    --latency-output disk
-
-Use the full TX/RX public and private host arguments shown by the runner usage. Alternate FEC order between repetitions. Every accepted nonzero-loss manifest must say sender_test_drop.
+Direct sender and receiver commands are documented in [harness/README.md](../harness/README.md). The environment and topology needed to reproduce the measurement conditions are recorded above.
 
 Raw per-message files are intentionally excluded. The committed per-run and aggregate CSVs, executed notebook with saved outputs, logs, and this report preserve the reviewed results.
-
-Open the committed notebook with:
-
-    jupyter notebook analysis.ipynb
 
 ## Limitations
 

@@ -1,15 +1,2 @@
-data/
-logs/
-*.csv
-*.latencies
-benchmark/results/*
-!benchmark/results/final/
-benchmark/results/final/*
-!benchmark/results/final/**/
-!benchmark/results/final/**/*.csv
-!benchmark/results/final/**/*.json
-!benchmark/results/final/**/*.md
-benchmark/results/final/**/*.latencies
-benchmark/results/final/**/*.bin
-*.zip
 harness/bin/
+*.zip

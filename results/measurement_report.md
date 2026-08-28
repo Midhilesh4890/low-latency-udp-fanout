@@ -42,7 +42,7 @@ Fan-out used producer/sender on TX CPUs 1/2 and receiver/consumer pairs on RX CP
 
 No /dev/ptp device existed on either Ubuntu measurement host. ethtool reported software transmit/receive/system timestamping and no PTP hardware clock.
 
-Two chrony configurations were tested because the organizers noted that chrony can sometimes achieve sub-microsecond synchronization:
+Two chrony configurations were tested with the bidirectional UDP probe in [tools/clock_probe.cpp](../tools/clock_probe.cpp) because the organizers noted that chrony can sometimes achieve sub-microsecond synchronization:
 
 | Configuration | Chrony indication | Independent TX-to-RX estimate | Independent RX-to-TX estimate | Verdict |
 |---|---:|---:|---:|---|
@@ -181,14 +181,11 @@ A matrix cell is run with benchmark/run_pipeline_rtt_remote.sh using:
 
 Use the full TX/RX public and private host arguments shown by the runner usage. Alternate FEC order between repetitions. Every accepted nonzero-loss manifest must say sender_test_drop.
 
-Regenerate compact evidence and the notebook:
+Raw per-message files are intentionally excluded. The committed per-run and aggregate CSVs, executed notebook with saved outputs, logs, and this report preserve the reviewed results.
 
-    python3 -m pip install -r requirements-analysis.txt
-    python3 benchmark/analyze_results.py
-    python3 benchmark/build_analysis_notebook.py
+Open the committed notebook with:
+
     jupyter notebook analysis.ipynb
-
-Raw per-message files are intentionally excluded. The committed per-run and aggregate CSVs, executed notebook, logs, and this report preserve the reviewed results.
 
 ## Limitations
 

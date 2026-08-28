@@ -47,7 +47,7 @@ UDP avoids connection-level head-of-line blocking and retransmission delay. Deli
 
 Batch size 32 with a 5 microsecond timeout was retained because it completed every accepted rate and fan-out run without loss. A batch-size-one diagnostic lost eight messages at 20,000 messages/s and was excluded. Disabling ENA receive moderation slightly improved low-rate p50 and p99 but worsened p99.9, p99.99, and maximum latency, so the ENA adaptive default was restored.
 
-Direct cross-host timestamp subtraction was rejected. The Ubuntu measurement hosts did not expose a PTP hardware clock, and independent bidirectional clock probes did not validate the required agreement after chrony tuning. A later configuration check exposed the ENA PHC on Amazon Linux 2023 by enabling `ena.phc_enable=1`, but the two Nitro PHCs reported hardware error bounds of 22.735 and 28.038 microseconds. Those bounds were too large for the measured latency scale. The report therefore uses the same-clock symmetric RTT/2 topology described below.
+Direct cross-host timestamp subtraction was rejected. The Ubuntu measurement hosts did not expose a PTP hardware clock, and independent bidirectional probes using [tools/clock_probe.cpp](tools/clock_probe.cpp) did not validate the required agreement after chrony tuning. A later configuration check exposed the ENA PHC on Amazon Linux 2023 by enabling `ena.phc_enable=1`, but the two Nitro PHCs reported hardware error bounds of 22.735 and 28.038 microseconds. Those bounds were too large for the measured latency scale. The report therefore uses the same-clock symmetric RTT/2 topology described below.
 
 Kernel bypass, `SO_BUSY_POLL`, and a multi-destination `sendmmsg` redesign were not evaluated. The sender and receiver already busy-poll in user space.
 
@@ -246,15 +246,8 @@ The notebook reads only the committed CSV files under `results/`.
 - Kernel bypass, `SO_BUSY_POLL`, and multi-destination batching were not evaluated.
 - The reported values are specific to the listed EC2 placement, CPU isolation, kernel, and ENA configuration.
 
-## Evidence and references
+## Evidence
 
 The compact evidence needed to check each result is retained in [`results/`](results/). [`results/measurement_report.md`](results/measurement_report.md) contains the detailed gates, rejected impairment methods, and counter-level interpretation. The notebook presents the same committed CSV data graphically. Local validation output is in [`results/tests.log`](results/tests.log).
 
-Background and implementation references:
-
-- [Linux `sendmmsg(2)`](https://man7.org/linux/man-pages/man2/sendmmsg.2.html) and [`recvmmsg(2)`](https://man7.org/linux/man-pages/man2/recvmmsg.2.html)
-- [Linux `tc-netem(8)`](https://man7.org/linux/man-pages/man8/tc-netem.8.html)
-- [chrony configuration reference](https://chrony-project.org/doc/4.3/chrony.conf.html)
 - [AWS local Amazon Time Sync and PHC configuration](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configure-ec2-ntp.html)
-- [AWS ENA Linux driver](https://github.com/amzn/amzn-drivers/tree/master/kernel/linux/ena)
-- [The Tail at Scale](https://research.google/pubs/the-tail-at-scale/)

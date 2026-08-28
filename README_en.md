@@ -2,12 +2,6 @@
 
 🇷🇺 [Русская версия](README.md)
 
-## Submitted solution
-
-Start with the [final EC2 measurement report](reports/session4/report.md) and the
-[analysis notebook](analysis.ipynb). The report includes the transport design,
-reproduction method, accepted results, rejected runs, and limitations.
-
 Hi! Welcome to the **Low-latency data transfer** challenge from the HFT fund Spectral::Technologies. In this challenge you'll be solving one of the problems we've faced in our own work — building a system that transfers data from one source server to other servers with minimal latency.
 
 The key requirement: optimal latency not just on average, but at high quantiles and under load. The system has to hold latency down when the data flow is heavy and when there are many receivers.

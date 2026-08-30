@@ -2,52 +2,52 @@
 
 ## Summary
 
-This submission implements a Linux C++17 transport between the fixed shared-memory producer and consumer supplied with the challenge. Messages enter a lock-free shared-memory ring, are sent as UDP datagrams with `sendmmsg`, received with `recvmmsg`, validated and deduplicated, then published to the destination shared-memory ring. One sender can transmit the same stream to multiple destinations. Optional XOR forward error correction (FEC) can recover one missing datagram in each generation of eight data datagrams.
+I built the transport in C++17 on Linux, using the fixed producer and consumer interfaces from the challenge. The producer writes to a lock-free shared-memory ring. The sender reads that ring and sends UDP batches with `sendmmsg`; the receiver uses `recvmmsg`, validates and deduplicates each frame, and writes accepted messages to the output ring. A sender can target more than one receiver. There is also an optional XOR FEC mode that can recover one missing datagram from a group of eight.
 
-The latency configuration uses a batch size of 32, a 5 microsecond batch timeout, 64 MiB UDP socket buffers, a 65,536-message deduplication window, and FEC disabled by default. Two `m7i.4xlarge` instances in one Availability Zone were configured with eight physical cores, no simultaneous multithreading, six isolated benchmark cores, ENA, and MTU 9001.
+For the latency runs I used batches of 32, a 5 microsecond batch timeout, 64 MiB socket buffers, and a 65,536-message deduplication window. FEC was off unless a run explicitly tested it. The two `m7i.4xlarge` instances were in the same Availability Zone and used ENA with MTU 9001. Each host had eight physical cores, no SMT, and six cores isolated for the benchmark.
 
-Measured results include:
+Main results:
 
 - In the plain one-way topology, the original 65,536-slot ring was exact at 800,000 messages/s and failed at 1,000,000. A 1,048,576-slot ring made a finite 1,000,000-message/s run exact by buffering backlog. After the FEC-off sender fast path, 1,250,000 messages/s was exact in two 3,000,000-message repetitions, while 1,375,000 failed twice. Sender processing was 0.819-0.829 million messages/s at that boundary, so 1.25M is burst capacity, not sustainable throughput. The measurements do not demonstrate 2M.
 - In the symmetric RTT/2 topology, zero-loss delivery remained exact through 725,000 source messages/s. At 750,000 messages/s the producer-to-sender shared-memory ring lapped 55,349 times. Tail latency had already collapsed at 725,000 messages/s, so the practical operating knee is lower than the exact-delivery ceiling.
 - Three-destination fan-out delivered exactly at 250,000 source messages/s, or 750,000 transmitted datagrams/s. The sender did not complete at 275,000 source messages/s with three destinations. A one-destination control also failed at the equivalent aggregate rate of 825,000 datagrams/s, identifying aggregate sender capacity rather than proving that destination iteration alone was responsible.
 - FEC reduced missing messages substantially under synthetic loss, but it was slower at every zero-loss percentile and reduced the usable throughput envelope to roughly one third of FEC-off. The data supports keeping FEC disabled for latency-first operation.
 
-The committed [analysis notebook](analysis.ipynb) contains the result tables and plots with saved outputs. Compact measurement evidence is under [`results/`](results/).
+The [analysis notebook](analysis.ipynb) contains the tables and saved plots. The CSV files, logs, and detailed report are under [`results/`](results/).
 
 ## Transport design
 
 ### Data path
 
-The producer and consumer framing fields, `seq_id` and `send_ts_ns`, are preserved unchanged. The transport path is:
+The transport does not change the producer and consumer framing fields, including `seq_id` and `send_ts_ns`. Its data path is:
 
 ```text
 producer -> shared-memory ring -> sender -> UDP/ENA -> receiver -> shared-memory ring -> consumer
 ```
 
-The sender busy-polls its input ring and groups ready datagrams into fixed-capacity batches. With FEC, impairment injection, and echo mode disabled, the sender reads each ring slot directly into its owned batch buffer and fills up to one batch per loop timestamp. The buffer remains stable until `sendmmsg` returns. Other configurations use the generic path.
+The sender busy-polls the input ring and builds fixed-size batches. On the common path, with FEC, loss injection, and echo mode all disabled, it copies each ring slot directly into the batch buffer. One loop timestamp is used while filling that batch, and the buffer is not reused until `sendmmsg` returns. The other modes go through the general path.
 
 A batch is flushed when it reaches 32 datagrams or its oldest member reaches the 5 microsecond timeout. `sendmmsg` amortizes system-call overhead while the timeout bounds batching delay at low rates. The receiver uses `recvmmsg`, validates datagram framing, runs the optional FEC decoder, applies the deduplication window, and publishes accepted frames to shared memory.
 
-Each destination has a connected UDP socket. Fan-out sends each completed batch to every destination in sequence. This keeps the common single-destination path small and makes delivery accounting explicit, but total sender work grows linearly with destination count.
+Each destination has its own connected UDP socket. For fan-out, the sender sends the finished batch to each destination in sequence. This keeps the one-destination case simple, but sender work increases with every added destination.
 
 ### Deduplication
 
-The receiver tracks a 65,536-message sequence window. In-order and previously unseen reordered messages are accepted once; duplicates and messages older than the window are rejected. Window advancement also records confirmed sequence loss and maximum observed reorder depth. This provides bounded memory and prevents duplicated network or recovered FEC frames from reaching the consumer twice.
+The receiver tracks a 65,536-message sequence window. In-order and previously unseen reordered messages are accepted once; duplicates and messages older than the window are rejected. Window advancement also records confirmed sequence loss and maximum observed reorder depth. The window has a fixed memory cost and keeps duplicate network frames or recovered FEC frames from reaching the consumer twice.
 
 ### Forward error correction
 
 For `fec_k=8`, each data datagram receives a compact generation envelope and one XOR parity datagram is emitted for every generation of eight. Data is sent immediately; it does not wait for parity. A receiver can reconstruct one missing member after the other seven data members and parity arrive. A 200 microsecond generation timeout closes partial generations at low rates. The measured byte overhead was approximately 22%, including envelopes and parity.
 
-FEC is optional because its recovery benefit competes directly with extra serialization, packet processing, decoder state, and delayed recovery samples. Recovered messages enter the latency distribution with their recovery delay.
+FEC is optional because recovery adds serialization work, packets, decoder state, and delay. A recovered message stays in the latency sample set, including the time spent waiting for recovery.
 
 ## Design decisions
 
-UDP avoids connection-level head-of-line blocking and retransmission delay. Delivery gaps, duplication, and optional recovery are visible to the application instead of being hidden behind a reliable byte stream. The trade-off is that the receiver must validate ordering and the application must choose whether recovery latency is preferable to missing delivery.
+I chose UDP to avoid connection-level head-of-line blocking and retransmission delays. It leaves gaps, duplicates, and recovery visible to the application, so the receiver has to validate sequence numbers and the application has to decide whether a late recovered message is better than a missing one.
 
 Batch size 32 with a 5 microsecond timeout was retained because it completed every accepted rate and fan-out run without loss. A batch-size-one diagnostic lost eight messages at 20,000 messages/s and was excluded. Disabling ENA receive moderation slightly improved low-rate p50 and p99 but worsened p99.9, p99.99, and maximum latency, so the ENA adaptive default was restored.
 
-Direct cross-host timestamp subtraction was rejected. The Ubuntu measurement hosts did not expose a PTP hardware clock, and independent bidirectional probes using [tools/clock_probe.cpp](tools/clock_probe.cpp) did not validate the required agreement after chrony tuning. A later configuration check exposed the ENA PHC on Amazon Linux 2023 by enabling `ena.phc_enable=1`, but the two Nitro PHCs reported hardware error bounds of 22.735 and 28.038 microseconds. Those bounds were too large for the measured latency scale. The report therefore uses the same-clock symmetric RTT/2 topology described below.
+I did not use direct cross-host timestamp subtraction. The Ubuntu hosts exposed no PTP hardware clock, and the two directions of [tools/clock_probe.cpp](tools/clock_probe.cpp) still disagreed after chrony tuning. A later configuration check exposed the ENA PHC on Amazon Linux 2023 by enabling `ena.phc_enable=1`, but the two Nitro PHCs reported hardware error bounds of 22.735 and 28.038 microseconds. Those bounds were too large for the measured latency scale. The report therefore uses the same-clock symmetric RTT/2 topology described below.
 
 Kernel bypass, `SO_BUSY_POLL`, and a multi-destination `sendmmsg` redesign were not evaluated. The sender and receiver already busy-poll in user space.
 
@@ -70,7 +70,7 @@ The full environment record is [`results/environment.log`](results/environment.l
 
 ### Latency topology
 
-The RTT/2 measurement approach was confirmed acceptable by the organizers when asked.
+The organizers confirmed that the RTT/2 setup was acceptable.
 
 Cross-host latency uses a symmetric round trip:
 
@@ -120,7 +120,7 @@ Values are RTT/2 microseconds. The 250,000 and 700,000 rows show the range acros
 | 725k/s | 168.219 | 1,109.958 | 1,168.397 | 1,242.297 | exact delivery; tail collapse |
 | 750k/s | invalid | invalid | invalid | invalid | rejected; 55,349 sender-ring laps |
 
-The exact-delivery ceiling is bracketed between 725,000 and 750,000 messages/s. The first failure is not an ENA allowance drop: the forward sender fell behind the producer ring before packets reached the NIC. The sharp increase at 725,000 messages/s establishes a lower practical ceiling for latency-sensitive use.
+Exact delivery stops somewhere between 725,000 and 750,000 messages/s. The 750,000 failure is not an ENA allowance drop; the forward sender falls behind the producer before those packets can reach the NIC. Latency rises sharply at 725,000, so the useful operating rate for a latency-sensitive workload is lower.
 
 The complete saturation rows are in [`results/saturation_summary.csv`](results/saturation_summary.csv); the lower-rate evidence is in [`results/rate_sweep.log`](results/rate_sweep.log).
 
@@ -136,7 +136,7 @@ Fan-out measurements validate delivery and capacity only. Their consumers run on
 | 3 | 275k/s | 825k/s | rejected; sender completion timeout |
 | 1 | 825k/s | 825k/s | rejected; sender completion timeout |
 
-The one-destination aggregate-rate control is important: the 825,000-datagram/s failure remains when destination iteration is removed. The evidence therefore identifies an aggregate sender-capacity boundary but does not isolate the sequential fan-out loop as its sole cause. Detailed counters are in [`results/fanout.log`](results/fanout.log) and [`results/fanout_summary.csv`](results/fanout_summary.csv).
+The one-destination control also fails at 825,000 datagrams/s. That points to an aggregate sender-capacity limit, not just the cost of looping over three destinations. Detailed counters are in [`results/fanout.log`](results/fanout.log) and [`results/fanout_summary.csv`](results/fanout_summary.csv).
 
 ## Loss and FEC results
 
@@ -165,7 +165,7 @@ The individual loss runs and their spread are retained in [`results/loss_matrix_
 
 ### Recommendation
 
-Keep FEC disabled by default for latency-first operation. Enable `fec_k=8` only when delivery completeness is explicitly more valuable than throughput and when the expected loss regime has been validated with a representative on-wire impairment. These measurements do not support claiming a latency win at any loss level.
+For a latency-first setup, I would leave FEC off. I would enable `fec_k=8` only when recovering missing messages matters more than throughput, and only after testing with a realistic on-wire loss pattern. These runs do not show a reliable latency improvement from FEC.
 
 ## Reproduction
 
@@ -177,7 +177,7 @@ Keep FEC disabled by default for latency-first operation. Enable `fec_k=8` only 
 
 The sender and receiver can be run directly on two Linux hosts using the commands in [harness/README.md](harness/README.md). Use an m7i.4xlarge instance in one Availability Zone, MTU 9001, ENA defaults, one process per isolated physical core, and CPUs 0 and 7 for housekeeping and interrupts to match the measured environment. Add additional sender destination arguments for fan-out, and set fec-k to 8 on the sender to enable the measured XOR FEC mode.
 
-The committed notebook has saved outputs and reads only the committed CSV files under results/.
+The notebook includes saved outputs and reads only the CSV files in `results/`.
 
 ## Limitations
 

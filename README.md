@@ -1,11 +1,11 @@
 # Low-latency UDP fan-out transport
 
-The [submission write-up](SUBMISSION.md) describes the transport design, measurement method, results, limitations, and reproduction procedure.
+The main write-up is in [SUBMISSION.md](SUBMISSION.md). It covers the transport design, test setup, results, limitations, and reproduction steps.
 
-Submission material:
+Repository contents:
 
 - [Executed analysis notebook](analysis.ipynb)
-- [Compact measurement evidence](results/)
+- [Measurement data and logs](results/)
 - [Transport source and run instructions](harness/)
 
 Build and test:

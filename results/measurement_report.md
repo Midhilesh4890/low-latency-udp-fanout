@@ -1,10 +1,10 @@
 # Detailed EC2 measurement report
 
-## Outcome
+## Results at a glance
 
-The measurements cover one-way throughput, loss/FEC behavior, symmetric RTT/2 saturation, fan-out scaling, and clock validation.
+I measured one-way throughput, loss with and without FEC, symmetric RTT/2 saturation, fan-out scaling, and clock accuracy.
 
-Measured findings:
+The main findings are:
 
 - Plain one-way delivery with the FEC-off fast path and a 1,048,576-slot ring was exact at 1.25M messages/s in two 3,000,000-message repetitions. It failed at 1.375M in two repetitions. Sender processing remained about 0.80-0.84M messages/s, so 1.25M is finite-run burst capacity and does not establish sustainable 1.25M or 2M throughput.
 - At 250 kmsg/s and 0.01% sender-side loss per direction, FEC k=8 delivered all 3,000,000 measured messages. This was the only tested loss level where FEC's median percentiles were not uniformly worse, but two repetitions with one fixed loss pattern do not establish a latency improvement.
@@ -13,15 +13,15 @@ Measured findings:
 - Fan-out is exact for one and two receivers at a 275 kmsg/s source rate and for three receivers at 250 kmsg/s. Three receivers at 275 kmsg/s fail sender completion. A one-receiver control at the equivalent aggregate rate of 825 kdatagrams/s also fails, so the evidence does not isolate the sequential destination loop as the sole cause.
 - The Ubuntu measurement hosts exposed no PHC. Chrony tuning did not validate sub-microsecond cross-host agreement, and a later ENA PHC probe had hardware-error bounds above 22 us. Latency therefore uses the full-pipeline same-clock RTT/2 method.
 
-Compact data is in [oneway_throughput_runs.csv](oneway_throughput_runs.csv), [oneway_throughput_summary.csv](oneway_throughput_summary.csv), [loss_matrix_runs.csv](loss_matrix_runs.csv), [loss_matrix_summary.csv](loss_matrix_summary.csv), [saturation_summary.csv](saturation_summary.csv), and [fanout_summary.csv](fanout_summary.csv). The repository-level [analysis notebook](../analysis.ipynb) reads only these committed files.
+The compact data is in [oneway_throughput_runs.csv](oneway_throughput_runs.csv), [oneway_throughput_summary.csv](oneway_throughput_summary.csv), [loss_matrix_runs.csv](loss_matrix_runs.csv), [loss_matrix_summary.csv](loss_matrix_summary.csv), [saturation_summary.csv](saturation_summary.csv), and [fanout_summary.csv](fanout_summary.csv). The [analysis notebook](../analysis.ipynb) reads those files directly.
 
 ## Transport under test
 
-The transport uses UDP datagrams between hosts and shared-memory rings at the fixed producer/consumer boundaries. The sender batches with sendmmsg, default batch size 32 and a 5 us timeout in latency runs. For FEC-off sends without impairment or echo mode, it reads the ring directly into owned batch buffers and fills a batch using one loop timestamp. Other configurations use the generic path. The receiver validates framing, publishes accepted messages to shared memory, and uses a 65,536-message dedupe window.
+UDP carries messages between the two hosts, while shared-memory rings connect the fixed producer and consumer to the transport. In the latency tests, `sendmmsg` sends batches of 32 with a 5 us timeout. When FEC, loss injection, and echo mode are off, the sender copies ring slots directly into its batch buffer and fills the batch under one loop timestamp. Other modes use the general path. The receiver checks framing, deduplicates through a 65,536-message window, and publishes valid messages to shared memory.
 
 Optional XOR FEC groups eight data messages and emits one parity datagram. Data is transmitted immediately; parity can recover one missing data datagram per generation. The cost is approximately 22% additional bytes in the observed k=8 runs, including the FEC envelope. FEC-off remains the low-latency/default measurement mode in the runners.
 
-The fan-out sender iterates over destinations. This remains a documented scaling limitation.
+The fan-out sender visits destinations one at a time, which limits how far this design can scale.
 
 ## Environment
 
@@ -40,7 +40,7 @@ Fan-out used producer/sender on TX CPUs 1/2 and receiver/consumer pairs on RX CP
 
 ## Clock gate and latency topology
 
-No /dev/ptp device existed on either Ubuntu measurement host. ethtool reported software transmit/receive/system timestamping and no PTP hardware clock.
+Neither Ubuntu host had a `/dev/ptp` device. `ethtool` showed software transmit, receive, and system timestamping, but no PTP hardware clock.
 
 Two chrony configurations were tested with the bidirectional UDP probe in [tools/clock_probe.cpp](../tools/clock_probe.cpp) because the organizers noted that chrony can sometimes achieve sub-microsecond synchronization:
 
@@ -49,7 +49,7 @@ Two chrony configurations were tested with the bidirectional UDP probe in [tools
 | Amazon Time Sync, minpoll/maxpoll 0 | corrections about 0.7-3.5 us | -1.474 us | +4.824 us | reject one-way subtraction |
 | Direct RX server, TX xleave plus F323 | correction about 0.370 us; source stddev about 2.1 us | -11.500 us | +9.207 us | reject one-way subtraction |
 
-The independent directional estimates should agree after sign normalization within the desired error budget. They did not. Chrony status alone was therefore not used as proof of sub-microsecond accuracy. Both hosts were restored to Amazon Time Sync with minpoll/maxpoll 4.
+After normalizing the signs, the two directional estimates should have agreed within the error budget. They did not, so I did not treat chrony status as proof of sub-microsecond accuracy. I restored both hosts to Amazon Time Sync with minpoll/maxpoll 4.
 
 A later Amazon Linux 2023 probe on m7i exposed the ENA PHC after enabling ena.phc_enable=1. The measured hardware-error bounds were 22.735 us and 28.038 us, which were too large for reliable one-way subtraction at the observed latency scale. That probe did not change the latency method.
 
@@ -61,7 +61,7 @@ Producer and consumer timestamps come from the TX clock. Reported latency is ful
 
 ## Loss methodology
 
-The intended impairment was tc netem on the real ENA path. Four implementations were rejected before the final matrix:
+I first tried to inject loss with `tc netem` on the real ENA path. I discarded four setups before running the final matrix:
 
 - A filtered root prio/netem qdisc at 0% loss missed messages at 500 kmsg/s.
 - Netem attached to mq leaves at 0% caused sender/ring pressure and large message loss.
@@ -70,7 +70,7 @@ The intended impairment was tc netem on the real ENA path. Four implementations 
 
 The hosts were restored to the original mq root with eight fq_codel leaves, and iptables OUTPUT was restored to ACCEPT with no added rule. ENA allowance-exceeded counters remained zero.
 
-The accepted fallback uses the sender's deterministic test-drop option in both directions. This still exercises the real two-host ENA path, receiver dedupe, FEC decoder, relay, and return path, but the loss occurs before sendmmsg. A dropped datagram never enters the kernel and consumes no socket or NIC transmit work. Real in-flight loss would retain the full sender transmit cost, so this method makes FEC look cheaper than it would under channel loss. It must not be described as on-wire or tc-netem loss. Each manifest records impairment_method=sender_test_drop.
+The final matrix uses the sender's deterministic test-drop option in both directions. Traffic still crosses the real two-host ENA path and exercises deduplication, FEC decoding, the relay, and the return path. The difference is that loss happens before `sendmmsg`. Dropped datagrams never enter the kernel and use no socket or NIC transmit work, so this method understates the cost of FEC compared with real in-flight loss. It is sender-side loss, not on-wire or `tc netem` loss. Every manifest records `impairment_method=sender_test_drop`.
 
 The 500 kmsg/s FEC control failed its zero-lap gate, and a 400 kmsg/s calibration also lapped. The matrix therefore used two repetitions at the validated 250 kmsg/s rate. Every cell contains 3,000,000 measured messages after 100,000 warm-up messages. FEC order was reversed in repetition two.
 
@@ -132,7 +132,7 @@ Only zero-loss, FEC-off runs enter the main saturation bracket.
 
 At 725 kmsg/s every transport counter is exact and sender/relay laps are zero, but the tail is already more than 1 ms. At 750 kmsg/s the forward sender sends 2,996,109 of 3,100,000 total messages and reports lapped=55,349. The receiver then publishes 2,995,779 and the measured consumer misses 104,221. The mechanism is producer-to-forward-sender shared-memory overrun, not an ENA allowance drop.
 
-The exact-delivery ceiling is therefore 725-750 kmsg/s. For low-tail operation, 725 kmsg/s is already beyond the practical knee.
+Exact delivery ends somewhere between 725 and 750 kmsg/s. Tail latency is already above 1 ms at 725 kmsg/s, so a low-latency deployment should stay below that point.
 
 FEC has a lower throughput envelope. At 500 kmsg/s with k=8, the forward sender lapped 223,540 and the measured consumer received 2,744,600. At 400 kmsg/s the short calibration also lapped. At 250 kmsg/s it was exact. Compared with FEC-off exact delivery at 725 kmsg/s, the demonstrated exact FEC envelope is roughly one-third as large. This practical cost is larger than the latency table alone suggests and explains why the loss matrix uses 250 kmsg/s.
 
@@ -152,7 +152,7 @@ The three-receiver boundary is reproduced at 250 kmsg/s clean and 275 kmsg/s fai
 
 ## Validity checks
 
-A valid run has zero sender/relay ring laps, zero receiver rejects, complete counters, and a complete manifest.
+I treated a run as valid only when it had no sender or relay ring laps, no receiver rejects, complete counters, and a complete manifest.
 
 Runs affected by TX root-volume exhaustion are excluded. Clean-disk reruns produced the accepted 700 and 725 kmsg/s points and the rejected 750 kmsg/s boundary.
 
@@ -166,7 +166,7 @@ Build and validate the transport with:
 
 Direct sender and receiver commands are documented in [harness/README.md](../harness/README.md). The environment and topology needed to reproduce the measurement conditions are recorded above.
 
-Raw per-message files are intentionally excluded. The committed per-run and aggregate CSVs, executed notebook with saved outputs, logs, and this report preserve the reviewed results.
+Raw per-message files are not included because of their size. The per-run CSVs, aggregate tables, saved notebook outputs, logs, and this report contain the results needed for review.
 
 ## Limitations
 
@@ -180,6 +180,6 @@ Raw per-message files are intentionally excluded. The committed per-run and aggr
 - No exact 2M run was demonstrated.
 - The 725 kmsg/s point is an exact-delivery ceiling observation, not a recommended low-latency operating rate.
 
-## Final recommendation
+## Recommendation
 
-Keep FEC disabled by default for latency-first operation. The only loss level where FEC's percentiles were not worse was 0.01%, and that result does not exceed the observed run-to-run variance. At 0.1% and 1%, FEC improves delivery completeness but worsens every scored percentile. Its demonstrated exact throughput envelope is also roughly one-third of FEC-off. The symmetric RTT/2 exact ceiling is 725 kmsg/s and its latency knee is lower. Plain one-way finite delivery is repeatable at 1.25M with the 1,048,576-slot ring, but measured sender processing remains below 0.85M/s. The documented three-receiver exact-delivery point is 250 kmsg/s.
+I would keep FEC off for normal latency-sensitive use. At 0.01% loss its tail numbers look slightly better, but the difference is within ordinary run-to-run variation. At 0.1% and 1%, it recovers far more messages but slows every reported percentile. It also reduces the demonstrated exact-throughput range to about one-third of the FEC-off result. The symmetric RTT/2 path delivers exactly at 725 kmsg/s, although its useful latency limit is lower. The large-ring one-way test handles a finite 1.25M-message/s burst, but the sender processes less than 0.85M messages/s. With three receivers, the measured exact-delivery point is 250 kmsg/s.

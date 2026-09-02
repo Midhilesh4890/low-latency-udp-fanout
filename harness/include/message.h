@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 
 namespace msg {
 
@@ -8,6 +9,7 @@ inline constexpr uint32_t kSymbolLen = 16;
 inline constexpr uint32_t kVenueLen = 16;
 inline constexpr uint32_t kCurrencyLen = 8;
 inline constexpr uint32_t kBookDepth = 5;
+inline constexpr uint16_t kVersion = 1;
 
 enum class Type : uint16_t {
   Trade = 1,
@@ -98,5 +100,24 @@ struct alignas(64) OrderBook {
 inline constexpr uint32_t kMaxFrame = sizeof(OrderBook);
 static_assert(sizeof(Trade) <= kMaxFrame, "kMaxFrame must fit every message");
 static_assert(sizeof(Bbo) <= kMaxFrame, "kMaxFrame must fit every message");
+
+inline uint32_t expected_size(Type type) {
+  switch (type) {
+    case Type::Trade: return sizeof(Trade);
+    case Type::Bbo: return sizeof(Bbo);
+    case Type::OrderBook: return sizeof(OrderBook);
+  }
+  return 0;
+}
+
+// Validate network-controlled bytes before interpreting them as a message.
+// memcpy keeps the header read safe even when the datagram is not aligned.
+inline bool validate_frame(const void* data, uint32_t len) {
+  if (data == nullptr || len < sizeof(Header) || len > kMaxFrame) return false;
+  Header header{};
+  std::memcpy(&header, data, sizeof(header));
+  if (header.version != kVersion || header.body_len != len) return false;
+  return expected_size(static_cast<Type>(header.type)) == len;
+}
 
 }

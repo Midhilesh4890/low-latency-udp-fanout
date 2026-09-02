@@ -13,6 +13,7 @@
 namespace fec {
 
 inline constexpr uint32_t kMagic = 0x46454331;
+inline constexpr uint16_t kMaxGeneration = 256;
 
 #pragma pack(push, 1)
 struct Envelope {
@@ -130,10 +131,12 @@ class Decoder {
     Envelope envelope{};
     std::memcpy(&envelope, data, sizeof(envelope));
     if (envelope.magic != kMagic) return call_publish(publish, data, len, false, 0);
+    if (envelope.k == 0 || envelope.k > kMaxGeneration) return false;
     const uint8_t* payload = data + sizeof(Envelope);
     const uint32_t payload_len = len - sizeof(Envelope);
     if (envelope.parity_count == 0) {
-      if (payload_len != envelope.protected_len || envelope.protected_len > shm::kFrameCap) return false;
+      if (payload_len != envelope.protected_len || envelope.protected_len > shm::kFrameCap ||
+          envelope.index >= envelope.k) return false;
       Generation& gen = slot(envelope.gen_id, envelope.k, now_ns);
       ensure(gen, envelope.k);
       if (envelope.index >= gen.k) return false;
@@ -142,9 +145,11 @@ class Decoder {
       gen.data[envelope.index] = protected_frame(payload, envelope.protected_len, envelope.protected_len);
       gen.received[envelope.index] = true;
       if (!call_publish(publish, payload, payload_len, false, gen.close_reason)) return false;
-      try_recover(gen, now_ns, publish);
-      return true;
+      return try_recover(gen, now_ns, publish);
     }
+    if (envelope.parity_count != 1 || envelope.index != envelope.k ||
+        envelope.protected_len != payload_len || payload_len < sizeof(uint16_t) ||
+        payload_len > shm::kFrameCap + sizeof(uint16_t)) return false;
     ++counters_.parity_received;
     Generation& gen = slot(envelope.gen_id, envelope.k, now_ns);
     ensure(gen, envelope.k);
@@ -153,8 +158,7 @@ class Decoder {
     gen.close_reason = envelope.close_reason;
     gen.parity.assign(payload, payload + payload_len);
     gen.parity_received = true;
-    try_recover(gen, now_ns, publish);
-    return true;
+    return try_recover(gen, now_ns, publish);
   }
 
   void retire_all() {
@@ -237,24 +241,24 @@ class Decoder {
   }
 
   template <class Publish>
-  void try_recover(Generation& gen, uint64_t now_ns, Publish publish) {
-    if (!gen.parity_received || gen.recovered || gen.k == 0) return;
+  bool try_recover(Generation& gen, uint64_t now_ns, Publish publish) {
+    if (!gen.parity_received || gen.recovered || gen.k == 0) return true;
     uint16_t missing = gen.k;
     uint16_t missing_index = 0;
     for (uint16_t i = 0; i < gen.k; ++i) {
       if (gen.received[i]) --missing;
       else missing_index = i;
     }
-    if (missing != 1) return;
+    if (missing != 1) return true;
     std::vector<uint8_t> recovered = gen.parity;
     for (uint16_t i = 0; i < gen.k; ++i) {
       if (!gen.received[i]) continue;
       for (size_t j = 0; j < gen.data[i].size() && j < recovered.size(); ++j) recovered[j] ^= gen.data[i][j];
     }
-    if (recovered.size() < sizeof(uint16_t)) return;
+    if (recovered.size() < sizeof(uint16_t)) return false;
     const uint16_t len = get_u16(recovered.data());
-    if (len > shm::kFrameCap || static_cast<size_t>(len) + sizeof(uint16_t) > recovered.size()) return;
-    call_publish(publish, recovered.data() + sizeof(uint16_t), len, true, gen.close_reason);
+    if (len > shm::kFrameCap || static_cast<size_t>(len) + sizeof(uint16_t) > recovered.size()) return false;
+    if (!call_publish(publish, recovered.data() + sizeof(uint16_t), len, true, gen.close_reason)) return false;
     gen.received[missing_index] = true;
     gen.recovered = true;
     ++counters_.recovered;
@@ -266,6 +270,7 @@ class Decoder {
     if (gen.close_reason == 0) recovery_by_k_.push_back(latency);
     else if (gen.close_reason == 1) recovery_by_timeout_.push_back(latency);
     else recovery_by_flush_.push_back(latency);
+    return true;
   }
 
   void finalize(Generation& gen) {

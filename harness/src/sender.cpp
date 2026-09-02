@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <optional>
 #include <random>
 #include <string>
@@ -152,6 +153,27 @@ Config parse_args(int argc, char** argv) {
   }
   if (c.repeat == 0) c.repeat = 1;
   if (c.batch_size == 0) c.batch_size = 1;
+  if (c.batch_size > 1024) {
+    fprintf(stderr, "--batch-size must be between 1 and 1024\n");
+    std::exit(2);
+  }
+  if (!util::is_power_of_two(c.slots)) {
+    fprintf(stderr, "--slots must be a power of two\n");
+    std::exit(2);
+  }
+  if (c.fec_k > fec::kMaxGeneration) {
+    fprintf(stderr, "--fec-k must be between 0 and %u\n", fec::kMaxGeneration);
+    std::exit(2);
+  }
+  if (c.test_drop_pct < 0.0 || c.test_drop_pct > 100.0 ||
+      c.test_reorder_pct < 0.0 || c.test_reorder_pct > 100.0) {
+    fprintf(stderr, "test impairment percentages must be between 0 and 100\n");
+    std::exit(2);
+  }
+  if (c.destinations.size() > 256 || c.sndbuf <= 0 || c.rcvbuf <= 0) {
+    fprintf(stderr, "at most 256 destinations are supported and socket buffers must be positive\n");
+    std::exit(2);
+  }
   if (c.fec_timeout_us == 0) c.fec_timeout_us = 1;
   if (c.destinations.empty()) c.destinations.push_back(Destination{c.host, c.port});
   if (!c.echo_out_shm.empty() && (c.destinations.size() != 1 || c.repeat != 1 || c.fec_k != 0 || c.test_drop_pct != 0.0 || c.test_reorder_pct != 0.0)) {
@@ -231,7 +253,7 @@ Batch make_batch(uint32_t batch_size) {
 void queue_datagram(Batch& batch, const uint8_t* data, uint32_t len) {
   std::memcpy(batch.frames[batch.size].data(), data, len);
   batch.lengths[batch.size] = len;
-  if (batch.size == 0) batch.first_ns = util::now_ns();
+  if (batch.size == 0) batch.first_ns = util::steady_now_ns();
   ++batch.size;
 }
 
@@ -317,7 +339,7 @@ bool flush_pending(const Config& cfg, const std::vector<int>& sockets, Batch& ba
 }
 
 bool emit_datagram(const Config& cfg, const std::vector<int>& sockets, Batch& batch, SendCounters& counters, std::vector<PendingDatagram>& pending, std::mt19937_64& rng, std::uniform_real_distribution<double>& dist, const uint8_t* data, uint32_t len, uint64_t& test_dropped, uint64_t& test_reordered) {
-  const uint64_t now_ns = util::now_ns();
+  const uint64_t now_ns = util::steady_now_ns();
   if (!flush_pending(cfg, sockets, batch, counters, pending, now_ns, false)) return false;
   if (cfg.test_drop_pct > 0.0 && dist(rng) < cfg.test_drop_pct) {
     ++test_dropped;
@@ -332,13 +354,20 @@ bool emit_datagram(const Config& cfg, const std::vector<int>& sockets, Batch& ba
     return true;
   }
   if (!queue_or_flush(cfg, sockets, batch, counters, data, len)) return false;
-  return flush_pending(cfg, sockets, batch, counters, pending, util::now_ns(), false);
+  return flush_pending(cfg, sockets, batch, counters, pending, util::steady_now_ns(), false);
 }
 
 }
 
 int main(int argc, char** argv) {
-  Config cfg = parse_args(argc, argv);
+  Config cfg;
+  try {
+    cfg = parse_args(argc, argv);
+  } catch (const std::exception& error) {
+    fprintf(stderr, "invalid argument: %s\n", error.what());
+    return 2;
+  }
+  util::install_signal_handlers();
 
   shm::Segment seg = shm::Segment::open(cfg.in_shm, shm::region_size(cfg.slots), false);
   shm::Ring ring;
@@ -382,7 +411,7 @@ int main(int argc, char** argv) {
   const uint64_t idle_ns = cfg.idle_ms * 1000000ull;
   const uint64_t batch_timeout_ns = cfg.batch_timeout_us * 1000ull;
   const uint64_t fec_timeout_ns = cfg.fec_timeout_us * 1000ull;
-  uint64_t last_progress = util::now_ns();
+  uint64_t last_progress = util::steady_now_ns();
   bool idle_terminated = false;
   uint64_t fec_first_ns = 0;
   uint64_t fec_last_arrival_ns = 0;
@@ -396,7 +425,7 @@ int main(int argc, char** argv) {
   std::uniform_real_distribution<double> dist(0.0, 100.0);
   Batch batch = make_batch(cfg.batch_size);
   SendCounters send_counters;
-  const uint64_t sender_start_ns = util::now_ns();
+  const uint64_t sender_start_ns = util::steady_now_ns();
 
   auto close_generation = [&](uint32_t reason) -> bool {
     if (cfg.fec_k == 0 || encoder.empty()) return true;
@@ -413,12 +442,12 @@ int main(int argc, char** argv) {
   };
 
   uint8_t frame[shm::kFrameCap];
-  while (cfg.count == 0 || sent < cfg.count) {
+  while (!util::should_stop() && (cfg.count == 0 || sent < cfg.count)) {
     if (echo_context != nullptr && !drain_echo(sockets[0])) {
       close_sockets(sockets);
       return 1;
     }
-    const uint64_t loop_now = util::now_ns();
+    const uint64_t loop_now = util::steady_now_ns();
     if (batch.size != 0 && loop_now - batch.first_ns >= batch_timeout_ns) {
       if (!flush_batch(cfg, sockets, batch, send_counters)) {
         close_sockets(sockets);
@@ -451,6 +480,11 @@ int main(int argc, char** argv) {
           if (resume > read_index) skipped_messages += resume - read_index;
           read_index = resume;
           break;
+        } else if (st == shm::Ring::FrameStatus::kCorrupt) {
+          fprintf(stderr, "sender: corrupt shared-memory frame at index %llu\n",
+                  static_cast<unsigned long long>(read_index));
+          close_sockets(sockets);
+          return 1;
         } else {
           break;
         }
@@ -465,7 +499,7 @@ int main(int argc, char** argv) {
         return 1;
       }
       if (made_progress) continue;
-      const uint64_t now_ns = util::now_ns();
+      const uint64_t now_ns = util::steady_now_ns();
       if (now_ns - last_progress > idle_ns) {
         idle_terminated = true;
         break;
@@ -516,8 +550,13 @@ int main(int argc, char** argv) {
       ++lapped_events;
       if (resume > read_index) skipped_messages += resume - read_index;
       read_index = resume;
+    } else if (st == shm::Ring::FrameStatus::kCorrupt) {
+      fprintf(stderr, "sender: corrupt shared-memory frame at index %llu\n",
+              static_cast<unsigned long long>(read_index));
+      close_sockets(sockets);
+      return 1;
     } else {
-      const uint64_t now_ns = util::now_ns();
+      const uint64_t now_ns = util::steady_now_ns();
       if (!flush_pending(cfg, sockets, batch, send_counters, pending, now_ns, false)) {
         close_sockets(sockets);
         return 1;
@@ -537,7 +576,7 @@ int main(int argc, char** argv) {
     close_sockets(sockets);
     return 1;
   }
-  if (!flush_pending(cfg, sockets, batch, send_counters, pending, util::now_ns(), true)) {
+  if (!flush_pending(cfg, sockets, batch, send_counters, pending, util::steady_now_ns(), true)) {
     close_sockets(sockets);
     return 1;
   }
@@ -546,13 +585,13 @@ int main(int argc, char** argv) {
     return 1;
   }
   if (echo_context != nullptr) {
-    const uint64_t deadline = util::now_ns() + cfg.echo_timeout_ms * 1000000ull;
+    const uint64_t deadline = util::steady_now_ns() + cfg.echo_timeout_ms * 1000000ull;
     while (echo_state.received < send_counters.packets) {
       if (!drain_echo(sockets[0])) {
         close_sockets(sockets);
         return 1;
       }
-      if (util::now_ns() > deadline) {
+      if (util::steady_now_ns() > deadline) {
         fprintf(stderr, "echo timeout: received=%llu expected=%llu\n", static_cast<unsigned long long>(echo_state.received),
                 static_cast<unsigned long long>(send_counters.packets));
         close_sockets(sockets);
@@ -561,7 +600,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  const uint64_t sender_duration_ns = util::now_ns() - sender_start_ns;
+  const uint64_t sender_duration_ns = util::steady_now_ns() - sender_start_ns;
   const uint64_t sender_active_ns = idle_terminated && sender_duration_ns > idle_ns ? sender_duration_ns - idle_ns : sender_duration_ns;
   const double effective_rate = sender_active_ns == 0 ? 0.0 : static_cast<double>(sent) * 1000000000.0 / static_cast<double>(sender_active_ns);
   const Distribution arrival_stats = distribution(fec_arrival_intervals);

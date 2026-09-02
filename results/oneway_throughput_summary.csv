@@ -1,5 +1,0 @@
-implementation,ring_slots,ring_memory_mib,highest_repeatable_exact_finite_rate,first_repeatable_failed_rate,observed_sender_rate,classification
-baseline,65536,40,800000,1000000,,small ring exposes sustained drain limit
-baseline,1048576,640,1000000,1250000,,burst-buffer improvement
-fast_path,65536,40,,1000000,848750-854578,small ring still below 1M
-fast_path,1048576,640,1250000,1375000,818975-829348,burst-buffer improvement; not sustained 1.25M

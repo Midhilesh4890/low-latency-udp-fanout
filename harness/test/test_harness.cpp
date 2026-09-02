@@ -137,6 +137,54 @@ static void test_frame_roundtrip_preserves_header() {
   printf("test_frame_roundtrip_preserves_header OK\n");
 }
 
+static void test_frame_validation() {
+  msg::Trade frame{};
+  frame.header.seq_id = 1;
+  frame.header.send_ts_ns = 2;
+  frame.header.type = static_cast<uint16_t>(msg::Type::Trade);
+  frame.header.version = msg::kVersion;
+  frame.header.body_len = sizeof(frame);
+  assert(msg::validate_frame(&frame, sizeof(frame)));
+
+  frame.header.version = 99;
+  assert(!msg::validate_frame(&frame, sizeof(frame)));
+  frame.header.version = msg::kVersion;
+  frame.header.body_len = sizeof(frame) - 1;
+  assert(!msg::validate_frame(&frame, sizeof(frame)));
+  frame.header.body_len = sizeof(frame);
+  frame.header.type = 999;
+  assert(!msg::validate_frame(&frame, sizeof(frame)));
+  assert(!msg::validate_frame(&frame, sizeof(msg::Header) - 1));
+  printf("test_frame_validation OK\n");
+}
+
+static void test_ring_rejects_invalid_metadata_and_lengths() {
+  const uint32_t slots = 8;
+  std::vector<uint8_t> mem(shm::region_size(slots));
+  shm::Ring producer;
+  producer.attach(mem.data(), slots, true);
+  bool threw = false;
+  try {
+    uint8_t oversized[shm::kFrameCap + 1]{};
+    producer.publish(oversized, sizeof(oversized));
+  } catch (const std::length_error&) {
+    threw = true;
+  }
+  assert(threw);
+
+  auto* header = reinterpret_cast<shm::Header*>(mem.data());
+  header->magic = 0;
+  threw = false;
+  try {
+    shm::Ring consumer;
+    consumer.attach(mem.data(), slots, false);
+  } catch (const std::runtime_error&) {
+    threw = true;
+  }
+  assert(threw);
+  printf("test_ring_rejects_invalid_metadata_and_lengths OK\n");
+}
+
 static void test_dedupe_in_order() {
   dedupe::Window window(64);
   for (uint64_t i = 1; i <= 100; ++i) assert(window.observe(i) == dedupe::ObserveResult::kAccept);
@@ -339,12 +387,30 @@ static void test_fec_out_of_order_recovers() {
   printf("test_fec_out_of_order_recovers OK\n");
 }
 
+static void test_fec_rejects_invalid_envelopes() {
+  auto frame = make_trade(1, 0);
+  auto datagram = fec::data_datagram(1, 0, 8, frame.data(),
+                                    static_cast<uint16_t>(frame.size()));
+  auto* envelope = reinterpret_cast<fec::Envelope*>(datagram.data());
+  envelope->k = 0;
+  fec::Decoder decoder(4);
+  assert(!decoder.receive(datagram.data(), static_cast<uint32_t>(datagram.size()),
+                          100, [](const uint8_t*, uint32_t) { return true; }));
+
+  envelope->k = fec::kMaxGeneration + 1;
+  assert(!decoder.receive(datagram.data(), static_cast<uint32_t>(datagram.size()),
+                          100, [](const uint8_t*, uint32_t) { return true; }));
+  printf("test_fec_rejects_invalid_envelopes OK\n");
+}
+
 int main() {
   test_metrics_basic();
   test_metrics_drops();
   test_ring_roundtrip();
   test_ring_lapping();
   test_frame_roundtrip_preserves_header();
+  test_frame_validation();
+  test_ring_rejects_invalid_metadata_and_lengths();
   test_dedupe_in_order();
   test_dedupe_swapped_adjacent();
   test_dedupe_delayed_w_minus_one();
@@ -358,6 +424,7 @@ int main() {
   test_fec_drop_parity();
   test_fec_partial_generation_recovers();
   test_fec_out_of_order_recovers();
+  test_fec_rejects_invalid_envelopes();
   printf("ALL TESTS PASSED\n");
   return 0;
 }

@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <fcntl.h>
 #include <string>
 #include <unistd.h>
@@ -54,6 +55,10 @@ Config parse_args(int argc, char** argv) {
       std::exit(2);
     }
   }
+  if (!util::is_power_of_two(c.slots)) {
+    fprintf(stderr, "--slots must be a power of two\n");
+    std::exit(2);
+  }
   return c;
 }
 
@@ -76,7 +81,14 @@ void print_report(const metrics::Report& r) {
 }
 
 int main(int argc, char** argv) {
-  Config cfg = parse_args(argc, argv);
+  Config cfg;
+  try {
+    cfg = parse_args(argc, argv);
+  } catch (const std::exception& error) {
+    fprintf(stderr, "invalid argument: %s\n", error.what());
+    return 2;
+  }
+  util::install_signal_handlers();
 
   shm::Segment seg =
       shm::Segment::open(cfg.shm_name, shm::region_size(cfg.slots), false);
@@ -95,21 +107,26 @@ int main(int argc, char** argv) {
   uint64_t skipped = 0;
   uint64_t lapped_events = 0;
   const uint64_t idle_ns = cfg.idle_ms * 1000000ull;
-  uint64_t last_progress = util::now_ns();
+  uint64_t last_progress = util::steady_now_ns();
 
   uint8_t frame[shm::kFrameCap];
-  while (cfg.count == 0 || received < cfg.count) {
+  while (!util::should_stop() && (cfg.count == 0 || received < cfg.count)) {
     uint32_t len = 0;
     uint64_t resume = 0;
     auto st = ring.read(read_index, frame, &len, &resume);
 
     if (st == shm::Ring::FrameStatus::kOk) {
       const uint64_t recv_ts = util::now_ns();
+      if (!msg::validate_frame(frame, len)) {
+        fprintf(stderr, "consumer: invalid frame at index %llu\n",
+                static_cast<unsigned long long>(read_index));
+        return 1;
+      }
       const auto* hdr = reinterpret_cast<const msg::Header*>(frame);
       if (skipped < cfg.skip) {
         ++skipped;
         ++read_index;
-        last_progress = recv_ts;
+        last_progress = util::steady_now_ns();
         continue;
       }
       const uint64_t latency =
@@ -123,12 +140,16 @@ int main(int argc, char** argv) {
       }
       ++received;
       ++read_index;
-      last_progress = recv_ts;
+      last_progress = util::steady_now_ns();
     } else if (st == shm::Ring::FrameStatus::kLapped) {
       ++lapped_events;
       read_index = resume;
+    } else if (st == shm::Ring::FrameStatus::kCorrupt) {
+      fprintf(stderr, "consumer: corrupt shared-memory frame at index %llu\n",
+              static_cast<unsigned long long>(read_index));
+      return 1;
     } else {
-      if (util::now_ns() - last_progress > idle_ns) break;
+      if (util::steady_now_ns() - last_progress > idle_ns) break;
     }
   }
 

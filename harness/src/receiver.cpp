@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -67,7 +68,20 @@ Config parse_args(int argc, char** argv) {
     }
   }
   if (c.batch_size == 0) c.batch_size = 1;
+  if (c.batch_size > 1024) {
+    fprintf(stderr, "--batch-size must be between 1 and 1024\n");
+    std::exit(2);
+  }
+  if (!util::is_power_of_two(c.slots) || !util::is_power_of_two(c.dedupe_window) ||
+      c.dedupe_window < 64 || c.dedupe_window > (1ull << 26)) {
+    fprintf(stderr, "--slots and --dedupe-window must be powers of two; dedupe window must be between 64 and 67108864\n");
+    std::exit(2);
+  }
   if (c.fec_gens == 0) c.fec_gens = 1;
+  if (c.fec_gens > 65536 || c.rcvbuf <= 0) {
+    fprintf(stderr, "--fec-gens must be at most 65536 and --rcvbuf must be positive\n");
+    std::exit(2);
+  }
   return c;
 }
 
@@ -110,7 +124,14 @@ int open_bound_udp_socket(const Config& cfg) {
 }
 
 int main(int argc, char** argv) {
-  Config cfg = parse_args(argc, argv);
+  Config cfg;
+  try {
+    cfg = parse_args(argc, argv);
+  } catch (const std::exception& error) {
+    fprintf(stderr, "invalid argument: %s\n", error.what());
+    return 2;
+  }
+  util::install_signal_handlers();
 
   shm::Segment seg = shm::Segment::open(cfg.out_shm, shm::region_size(cfg.slots), true);
   shm::Ring ring;
@@ -131,7 +152,7 @@ int main(int argc, char** argv) {
   uint64_t rejected = 0;
   uint64_t fec_late_recovered_too_old = 0;
   const uint64_t idle_ns = cfg.idle_ms * 1000000ull;
-  uint64_t last_progress = util::now_ns();
+  uint64_t last_progress = util::steady_now_ns();
 
   dedupe::Window dedupe_window(cfg.dedupe_window);
   fec::Decoder decoder(cfg.fec_gens);
@@ -151,8 +172,7 @@ int main(int argc, char** argv) {
   }
 
   auto publish_frame = [&](const uint8_t* frame, uint32_t len, bool recovered, uint8_t) -> bool {
-    if (len < sizeof(msg::Header) || len > shm::kFrameCap) {
-      ++rejected;
+    if (!msg::validate_frame(frame, len)) {
       return false;
     }
     const auto* hdr = reinterpret_cast<const msg::Header*>(frame);
@@ -175,7 +195,7 @@ int main(int argc, char** argv) {
     return true;
   };
 
-  while (cfg.count == 0 || (cfg.echo ? echoed : published) < cfg.count) {
+  while (!util::should_stop() && (cfg.count == 0 || (cfg.echo ? echoed : published) < cfg.count)) {
     uint32_t batch_count = cfg.batch_size;
     for (uint32_t i = 0; i < batch_count; ++i) {
       iovecs[i].iov_len = frames[i].size();
@@ -201,12 +221,12 @@ int main(int argc, char** argv) {
       } else {
         for (int i = 0; i < n; ++i) {
           ++received;
-          if (!decoder.receive(frames[i].data(), messages[i].msg_len, util::now_ns(), publish_frame)) ++rejected;
+          if (!decoder.receive(frames[i].data(), messages[i].msg_len, util::steady_now_ns(), publish_frame)) ++rejected;
         }
       }
-      last_progress = util::now_ns();
+      last_progress = util::steady_now_ns();
     } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-      if (util::now_ns() - last_progress > idle_ns) break;
+      if (util::steady_now_ns() - last_progress > idle_ns) break;
     } else if (n < 0) {
       perror("recvmmsg");
       close(sock);

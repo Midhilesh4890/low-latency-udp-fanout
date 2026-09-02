@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <stdexcept>
 
 #include "message.h"
 
@@ -41,6 +42,9 @@ class Ring {
 
 
   void attach(void* base, uint32_t slots, bool init) {
+    if (base == nullptr || slots == 0 || (slots & (slots - 1)) != 0) {
+      throw std::invalid_argument("shared-memory slot count must be a power of two");
+    }
     header_ = static_cast<Header*>(base);
     slots_ = reinterpret_cast<Slot*>(static_cast<uint8_t*>(base) +
                                      sizeof(Header));
@@ -52,6 +56,9 @@ class Ring {
       for (uint32_t i = 0; i < slots; ++i) {
         slots_[i].seq.store(0, std::memory_order_relaxed);
       }
+    } else if (header_->magic != kMagic || header_->slot_count != slots ||
+               header_->slot_size != sizeof(Slot)) {
+      throw std::runtime_error("shared-memory ring metadata mismatch");
     }
     mask_ = header_->slot_count - 1;
   }
@@ -59,6 +66,9 @@ class Ring {
   uint32_t slot_count() const { return header_->slot_count; }
 
   void publish(const void* frame, uint32_t len) {
+    if (frame == nullptr || len == 0 || len > kFrameCap) {
+      throw std::length_error("invalid shared-memory frame length");
+    }
     const uint64_t idx = header_->write_index.load(std::memory_order_relaxed);
     Slot& s = slots_[idx & mask_];
     s.frame_len = len;
@@ -74,7 +84,7 @@ class Ring {
     return header_->write_index.load(std::memory_order_acquire);
   }
 
-  enum class FrameStatus { kOk, kEmpty, kLapped };
+  enum class FrameStatus { kOk, kEmpty, kLapped, kCorrupt };
 
 
   FrameStatus read(uint64_t read_index, void* out, uint32_t* out_len,
@@ -91,6 +101,7 @@ class Ring {
     }
 
     const uint32_t len = s.frame_len;
+    if (len == 0 || len > kFrameCap) return FrameStatus::kCorrupt;
     std::memcpy(out, s.frame, len);
 
     if (s.seq.load(std::memory_order_acquire) != want) {

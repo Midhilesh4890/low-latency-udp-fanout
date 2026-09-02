@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <string>
 #include <thread>
 
@@ -23,8 +24,6 @@ struct Config {
   uint64_t start_delay_ms = 0;
   Kind kind = Kind::Mixed;
 };
-
-bool is_power_of_two(uint32_t x) { return x != 0 && (x & (x - 1)) == 0; }
 
 Kind parse_kind(const std::string& s) {
   if (s == "trade") return Kind::Trade;
@@ -57,8 +56,12 @@ Config parse_args(int argc, char** argv) {
       std::exit(2);
     }
   }
-  if (!is_power_of_two(c.slots)) {
+  if (!util::is_power_of_two(c.slots)) {
     fprintf(stderr, "--slots must be a power of two (got %u)\n", c.slots);
+    std::exit(2);
+  }
+  if (c.rate < 0.0) {
+    fprintf(stderr, "--rate must be non-negative\n");
     std::exit(2);
   }
   return c;
@@ -72,7 +75,7 @@ void set_str(char* dst, uint32_t cap, const char* src) {
 void fill_header(msg::Header& h, uint64_t seq, msg::Type type, uint32_t body_len) {
   h.seq_id = seq;
   h.type = static_cast<uint16_t>(type);
-  h.version = 1;
+  h.version = msg::kVersion;
   h.body_len = body_len;
   h.send_ts_ns = util::now_ns();
 }
@@ -190,7 +193,14 @@ const char* kind_name(Kind k) {
 }
 
 int main(int argc, char** argv) {
-  Config cfg = parse_args(argc, argv);
+  Config cfg;
+  try {
+    cfg = parse_args(argc, argv);
+  } catch (const std::exception& error) {
+    fprintf(stderr, "invalid argument: %s\n", error.what());
+    return 2;
+  }
+  util::install_signal_handlers();
 
   shm::Segment seg =
       shm::Segment::open(cfg.shm_name, shm::region_size(cfg.slots), true);
@@ -203,7 +213,7 @@ int main(int argc, char** argv) {
 
   const uint64_t interval_ns =
       cfg.rate > 0.0 ? static_cast<uint64_t>(1e9 / cfg.rate) : 0;
-  uint64_t next_send = util::now_ns();
+  uint64_t next_send = util::steady_now_ns();
 
   fprintf(stderr, "producer: shm=%s slots=%u count=%llu rate=%.0f type=%s start_delay_ms=%llu\n",
           cfg.shm_name.c_str(), cfg.slots,
@@ -211,9 +221,9 @@ int main(int argc, char** argv) {
           kind_name(cfg.kind), static_cast<unsigned long long>(cfg.start_delay_ms));
 
   uint64_t seq = 0;
-  while (cfg.count == 0 || seq < cfg.count) {
+  while (!util::should_stop() && (cfg.count == 0 || seq < cfg.count)) {
     if (interval_ns) {
-      while (util::now_ns() < next_send) {
+      while (!util::should_stop() && util::steady_now_ns() < next_send) {
       }
       next_send += interval_ns;
     }

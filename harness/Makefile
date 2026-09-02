@@ -7,7 +7,7 @@ LDLIBS   ?= -lrt -lpthread
 BIN := bin
 BINARIES := $(BIN)/producer $(BIN)/consumer $(BIN)/sender $(BIN)/receiver
 
-.PHONY: all clean test
+.PHONY: all clean test smoke
 
 all: $(BINARIES)
 
@@ -28,6 +28,9 @@ $(BIN)/receiver: src/receiver.cpp include/*.h | $(BIN)
 
 test: $(BINARIES) $(BIN)/test_harness
 	./$(BIN)/test_harness
+
+smoke: all
+	../scripts/smoke_test.sh ./$(BIN)
 
 $(BIN)/test_harness: test/test_harness.cpp include/*.h | $(BIN)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS)

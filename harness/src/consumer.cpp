@@ -13,6 +13,8 @@
 #include "shm_ring.h"
 #include "shm_segment.h"
 #include "util.h"
+#include <map>
+#include <utility>
 
 namespace {
 
@@ -30,6 +32,8 @@ struct CsvRecord {
   uint64_t seq_id;
   uint64_t send_ts_ns;
   uint64_t recv_ts_ns;
+  uint64_t stream_id;
+  uint64_t stream_epoch;
 };
 
 Config parse_args(int argc, char** argv) {
@@ -80,7 +84,7 @@ void print_report(const metrics::Report& r) {
 
 }
 
-int main(int argc, char** argv) {
+int run(int argc, char** argv) {
   Config cfg;
   try {
     cfg = parse_args(argc, argv);
@@ -95,11 +99,13 @@ int main(int argc, char** argv) {
   shm::Ring ring;
   ring.attach(seg.base(), cfg.slots, false);
 
-  metrics::Accumulator acc(cfg.count ? cfg.count : 1u << 20);
+  metrics::Accumulator acc;
+  std::map<std::pair<uint64_t,uint64_t>,metrics::Accumulator> stream_metrics;
 
-  std::vector<CsvRecord> records;
-  if (!cfg.csv.empty()) {
-    records.resize(cfg.count ? cfg.count : 1024);
+  FILE* records=nullptr;
+  if(!cfg.csv.empty()) {
+    records=fopen(cfg.csv.c_str(),"wb");
+    if(!records) {perror("records");return 1;}
   }
 
   uint64_t read_index = cfg.from_edge ? ring.live_edge() : 0;
@@ -122,7 +128,8 @@ int main(int argc, char** argv) {
                 static_cast<unsigned long long>(read_index));
         return 1;
       }
-      const auto* hdr = reinterpret_cast<const msg::Header*>(frame);
+      msg::Header header{};std::memcpy(&header,frame,sizeof(header));
+      const auto* hdr = &header;
       if (skipped < cfg.skip) {
         ++skipped;
         ++read_index;
@@ -131,12 +138,15 @@ int main(int argc, char** argv) {
       }
       const uint64_t latency =
           recv_ts > hdr->send_ts_ns ? recv_ts - hdr->send_ts_ns : 0;
-      acc.record(hdr->seq_id, latency);
-      if (!cfg.csv.empty()) {
-        if (received == records.size()) {
-          records.resize(records.empty() ? 1024 : records.size() * 2);
-        }
-        records[received] = CsvRecord{hdr->seq_id, hdr->send_ts_ns, recv_ts};
+      const auto identity=std::make_pair(hdr->stream_id,hdr->stream_epoch);
+      if(!stream_metrics.count(identity) && stream_metrics.size()>=256) {
+        fprintf(stderr,"consumer stream limit exceeded\n");return 1;
+      }
+      stream_metrics[identity].record(hdr->seq_id,latency);
+      acc.record(received+1, latency);
+      if(records) {
+        CsvRecord record{hdr->seq_id,hdr->send_ts_ns,recv_ts,hdr->stream_id,hdr->stream_epoch};
+        if(fwrite(&record,sizeof(record),1,records)!=1) {perror("records");fclose(records);return 1;}
       }
       ++received;
       ++read_index;
@@ -150,30 +160,25 @@ int main(int argc, char** argv) {
       return 1;
     } else {
       if (util::steady_now_ns() - last_progress > idle_ns) break;
+      util::idle_wait(last_progress);
     }
   }
 
-  if (!cfg.csv.empty()) {
-    const int fd = open(cfg.csv.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0644);
-    if (fd < 0) {
-      perror("open");
-      return 1;
-    }
-    const size_t bytes = static_cast<size_t>(received) * sizeof(CsvRecord);
-    const ssize_t n = write(fd, records.data(), bytes);
-    if (n < 0 || static_cast<size_t>(n) != bytes) {
-      perror("write");
-      close(fd);
-      return 1;
-    }
-    if (close(fd) != 0) {
-      perror("close");
-      return 1;
-    }
-  }
+  if(records && fclose(records)!=0) {perror("records");return 1;}
 
   fprintf(stderr, "consumer: skipped %llu lapped %llu times\n",
           (unsigned long long)skipped, (unsigned long long)lapped_events);
-  print_report(acc.report());
+  auto report=acc.report();report.expected=0;report.dropped=0;
+  for(const auto& item:stream_metrics) {
+    auto stream=item.second.report();report.expected+=stream.expected;report.dropped+=stream.dropped;
+  }
+  report.drop_rate=report.expected?static_cast<double>(report.dropped)/report.expected:0;
+  print_report(report);
+  if(cfg.count && received < cfg.count) { fprintf(stderr,"incomplete counted run\n"); return 1; }
   return 0;
+}
+
+int main(int argc,char** argv) {
+  try {return run(argc,argv);}
+  catch(const std::exception& error) {fprintf(stderr,"consumer: %s\n",error.what());return 1;}
 }

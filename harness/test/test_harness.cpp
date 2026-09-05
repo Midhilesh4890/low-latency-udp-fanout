@@ -8,6 +8,13 @@
 #include "dedupe_window.h"
 #include "fec.h"
 #include "message.h"
+#include "wire.h"
+#include "multiplex.h"
+#include <thread>
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include <array>
+#include <memory>
 #include "metrics.h"
 #include "shm_ring.h"
 
@@ -42,7 +49,10 @@ static void test_metrics_drops() {
 
 static void test_ring_roundtrip() {
   const uint32_t slots = 8;
-  std::vector<uint8_t> mem(shm::region_size(slots));
+  std::unique_ptr<uint8_t[], void(*)(uint8_t*)> storage(
+      static_cast<uint8_t*>(::operator new[](shm::region_size(slots), std::align_val_t(64))),
+      [](uint8_t* p){::operator delete[](p,std::align_val_t(64));});
+  struct { uint8_t* ptr; uint8_t* data() {return ptr;} } mem{storage.get()};
   shm::Ring prod;
   prod.attach(mem.data(), slots, true);
   shm::Ring cons;
@@ -74,9 +84,13 @@ static void test_ring_roundtrip() {
 
 static void test_ring_lapping() {
   const uint32_t slots = 4;
-  std::vector<uint8_t> mem(shm::region_size(slots));
+  std::unique_ptr<uint8_t[], void(*)(uint8_t*)> storage(
+      static_cast<uint8_t*>(::operator new[](shm::region_size(slots), std::align_val_t(64))),
+      [](uint8_t* p){::operator delete[](p,std::align_val_t(64));});
+  struct { uint8_t* ptr; uint8_t* data() {return ptr;} } mem{storage.get()};
   shm::Ring prod;
   prod.attach(mem.data(), slots, true);
+  prod.set_backpressure(false);
   shm::Ring cons;
   cons.attach(mem.data(), slots, false);
 
@@ -101,7 +115,10 @@ static void test_ring_lapping() {
 
 static void test_frame_roundtrip_preserves_header() {
   const uint32_t slots = 8;
-  std::vector<uint8_t> mem(shm::region_size(slots));
+  std::unique_ptr<uint8_t[], void(*)(uint8_t*)> storage(
+      static_cast<uint8_t*>(::operator new[](shm::region_size(slots), std::align_val_t(64))),
+      [](uint8_t* p){::operator delete[](p,std::align_val_t(64));});
+  struct { uint8_t* ptr; uint8_t* data() {return ptr;} } mem{storage.get()};
   shm::Ring prod;
   prod.attach(mem.data(), slots, true);
   shm::Ring cons;
@@ -111,7 +128,7 @@ static void test_frame_roundtrip_preserves_header() {
   frame.header.seq_id = 42;
   frame.header.send_ts_ns = 123456789;
   frame.header.type = static_cast<uint16_t>(msg::Type::Trade);
-  frame.header.version = 1;
+  frame.header.version = msg::kVersion;
   frame.header.body_len = sizeof(frame);
   frame.trade_id = 777;
   frame.price = 101.25;
@@ -160,7 +177,10 @@ static void test_frame_validation() {
 
 static void test_ring_rejects_invalid_metadata_and_lengths() {
   const uint32_t slots = 8;
-  std::vector<uint8_t> mem(shm::region_size(slots));
+  std::unique_ptr<uint8_t[], void(*)(uint8_t*)> storage(
+      static_cast<uint8_t*>(::operator new[](shm::region_size(slots), std::align_val_t(64))),
+      [](uint8_t* p){::operator delete[](p,std::align_val_t(64));});
+  struct { uint8_t* ptr; uint8_t* data() {return ptr;} } mem{storage.get()};
   shm::Ring producer;
   producer.attach(mem.data(), slots, true);
   bool threw = false;
@@ -255,7 +275,7 @@ static std::vector<uint8_t> make_trade(uint64_t seq, uint32_t extra) {
   frame.header.seq_id = seq;
   frame.header.send_ts_ns = 1000 + seq;
   frame.header.type = static_cast<uint16_t>(msg::Type::Trade);
-  frame.header.version = 1;
+  frame.header.version = msg::kVersion;
   frame.header.body_len = sizeof(frame);
   frame.trade_id = 7000 + seq;
   frame.price = 10.0 + static_cast<double>(seq);
@@ -391,19 +411,185 @@ static void test_fec_rejects_invalid_envelopes() {
   auto frame = make_trade(1, 0);
   auto datagram = fec::data_datagram(1, 0, 8, frame.data(),
                                     static_cast<uint16_t>(frame.size()));
-  auto* envelope = reinterpret_cast<fec::Envelope*>(datagram.data());
+  auto header = fec::read_envelope(datagram.data());
+  auto* envelope = &header;
   envelope->k = 0;
+  fec::write_envelope(datagram.data(), header);
   fec::Decoder decoder(4);
   assert(!decoder.receive(datagram.data(), static_cast<uint32_t>(datagram.size()),
                           100, [](const uint8_t*, uint32_t) { return true; }));
 
   envelope->k = fec::kMaxGeneration + 1;
+  fec::write_envelope(datagram.data(), header);
   assert(!decoder.receive(datagram.data(), static_cast<uint32_t>(datagram.size()),
                           100, [](const uint8_t*, uint32_t) { return true; }));
   printf("test_fec_rejects_invalid_envelopes OK\n");
 }
 
+
+static void test_wire_golden_and_roundtrip() {
+  msg::Trade trade{};
+  trade.header={0x0102030405060708ull,9,1,msg::kVersion,sizeof(trade),11,12};
+  trade.price=1.0; trade.price_ticks=-123; trade.quantity_lots=INT64_MIN;
+  std::memcpy(trade.symbol,"BTC",3);
+  auto bytes=wire::encode(&trade,sizeof(trade));
+  const uint8_t prefix[]={0x50,0x55,0x4c,0x33,1,2,3,4,5,6,7,8};
+  assert(std::equal(std::begin(prefix),std::end(prefix),bytes.begin()));
+  assert(bytes.size()==200);
+  // Canonical binary64 1.0: field offset fixed independently of ABI.
+  assert(bytes[132]==0x3f && bytes[133]==0xf0);
+  msg::Trade decoded{}; uint32_t length=0;
+  assert(wire::decode(bytes.data(),bytes.size(),&decoded,length));
+  assert(decoded.header.seq_id==trade.header.seq_id && decoded.price==1.0);
+  assert(decoded.price_ticks==-123 && decoded.quantity_lots==INT64_MIN);
+  assert(wire::encode(&decoded,length)==bytes);
+  for(size_t n=0;n<bytes.size();++n)
+    assert(!wire::decode(bytes.data(),n,&decoded,length));
+  auto corrupt=bytes; corrupt[0]=0;
+  assert(!wire::decode(corrupt.data(),corrupt.size(),&decoded,length));
+  corrupt=bytes; corrupt[23]=99;
+  assert(!wire::decode(corrupt.data(),corrupt.size(),&decoded,length));
+  msg::Bbo bbo{}; bbo.header={5,6,2,msg::kVersion,sizeof(bbo),11,12};
+  bbo.ask_price=987.25; bbo.bid_size_lots=-999;
+  auto bb=wire::encode(&bbo,sizeof(bbo)); msg::Bbo bbo_out{};
+  assert(wire::decode(bb.data(),bb.size(),&bbo_out,length));
+  assert(bbo_out.ask_price==bbo.ask_price && bbo_out.bid_size_lots==-999);
+  msg::OrderBook book{}; book.header={7,8,3,msg::kVersion,sizeof(book),11,12};
+  book.asks[4].size=42.5; book.bids[3].order_count=123;
+  auto bk=wire::encode(&book,sizeof(book)); msg::OrderBook book_out{};
+  assert(bk.size()==540);
+  assert(wire::decode(bk.data(),bk.size(),&book_out,length));
+  assert(book_out.asks[4].size==42.5 && book_out.bids[3].order_count==123);
+  printf("test_wire_golden_and_roundtrip OK\n");
+}
+
+static void test_fec_multiple_erasures() {
+  for(unsigned mask=0;mask<(1u<<9);++mask) {
+    if(__builtin_popcount(mask)!=3) continue;
+    fec::Encoder encoder(6,3);
+    std::vector<std::vector<uint8_t>> source;
+    for(int i=0;i<6;++i) {
+      source.push_back(make_trade(i+1,i));
+      assert(encoder.add(source.back().data(),source.back().size()));
+    }
+    auto built=encoder.close(7,0);
+    auto packets=built.data; packets.push_back(built.parity);
+    packets.insert(packets.end(),built.extra_parity.begin(),built.extra_parity.end());
+    std::vector<std::vector<uint8_t>> delivered;
+    for(int i=8;i>=0;--i) if(!(mask&(1u<<i))) delivered.push_back(packets[i]);
+    fec::Decoder decoder;
+    auto output=decode_datagrams(delivered,decoder);
+    for(auto& frame:source) assert(contains_frame(output,frame));
+  }
+  // Partial generation, all data missing, recovered solely from parity.
+  fec::Encoder partial(8,3);
+  auto frame=make_trade(19,2);
+  partial.add(frame.data(),frame.size()); partial.add(frame.data(),frame.size());
+  auto built=partial.close(22,1);
+  fec::Decoder decoder;
+  auto output=decode_datagrams(built.extra_parity,decoder);
+  assert(output.size()==2 && output[0]==frame && output[1]==frame);
+  assert(decoder.counters().recovered==2);
+  printf("test_fec_multiple_erasures OK\n");
+}
+
+
+static void test_fec_conflicting_closure_does_not_poison() {
+  fec::Encoder encoder(4,2);
+  std::vector<std::vector<uint8_t>> source;
+  for(int i=0;i<4;++i) {
+    source.push_back(make_trade(i+1,0));
+    encoder.add(source.back().data(),source.back().size());
+  }
+  auto built=encoder.close(42,0);
+  fec::Decoder decoder;
+  auto output=decode_datagrams({built.parity,built.data[0]},decoder);
+  auto bad=built.extra_parity[0];
+  auto header=fec::read_envelope(bad.data()); header.k=2; header.index=3;
+  fec::write_envelope(bad.data(),header);
+  assert(!decoder.receive(bad.data(),bad.size(),200,[](const uint8_t*,uint32_t){return true;}));
+  auto rest=decode_datagrams({built.data[1],built.extra_parity[0]},decoder);
+  assert(contains_frame(rest,source[2]) && contains_frame(rest,source[3]));
+  printf("test_fec_conflicting_closure_does_not_poison OK\n");
+}
+
+
+struct TestRegion {
+  void* data;
+  size_t size;
+  explicit TestRegion(uint32_t slots):size(shm::region_size(slots)) {
+    data=mmap(nullptr,size,PROT_READ|PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS,-1,0);
+    assert(data!=MAP_FAILED);
+  }
+  ~TestRegion(){munmap(data,size);}
+};
+static void test_ring_concurrent_overwrite_integrity() {
+  TestRegion region(4);
+  shm::Ring writer,reader;writer.attach(region.data,4,true);writer.set_backpressure(false);
+  reader.attach(region.data,4,false);
+  std::atomic<bool> done{false};
+  std::thread thread([&] {
+    for(uint64_t n=1;n<=30000;++n) {
+      uint64_t frame[32];std::fill(std::begin(frame),std::end(frame),n);
+      writer.publish(frame,sizeof(frame));
+    }
+    done.store(true);
+  });
+  uint64_t index=0,ok=0;
+  while(!done.load() || index<writer.live_edge()) {
+    uint64_t frame[32],resume=0;uint32_t len=0;
+    auto status=reader.read(index,frame,&len,&resume);
+    if(status==shm::Ring::FrameStatus::kOk) {
+      assert(len==sizeof(frame));
+      for(auto value:frame) assert(value==index+1);
+      ++index;++ok;
+    } else if(status==shm::Ring::FrameStatus::kLapped) index=resume;
+    else assert(status==shm::Ring::FrameStatus::kEmpty);
+  }
+  thread.join();assert(ok>0);
+  printf("test_ring_concurrent_overwrite_integrity OK\n");
+}
+static void test_ring_backpressure_and_dead_lock_owner() {
+  TestRegion region(2);
+  shm::Ring writer,reader;writer.attach(region.data,2,true);reader.attach(region.data,2,false);
+  uint64_t frame=1;writer.publish(&frame,8);writer.publish(&frame,8);
+  std::atomic<bool> published{false};
+  std::thread blocked([&]{writer.publish(&frame,8);published.store(true);});
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));assert(!published.load());
+  uint64_t out,resume=0;uint32_t len=0;
+  assert(reader.read(0,&out,&len,&resume)==shm::Ring::FrameStatus::kOk);
+  blocked.join();assert(published.load());
+  // A dead process holding a read-side slot mutex must not wedge the ring.
+  auto* slots=reinterpret_cast<shm::Slot*>(static_cast<uint8_t*>(region.data)+sizeof(shm::Header));
+  pid_t child=fork();assert(child>=0);
+  if(child==0) {pthread_mutex_lock(&slots[1].mutex);_exit(0);}
+  int status=0;assert(waitpid(child,&status,0)==child);
+  assert(reader.read(1,&out,&len,&resume)==shm::Ring::FrameStatus::kOk);
+  printf("test_ring_backpressure_and_dead_lock_owner OK\n");
+}
+static void test_bounded_metrics_and_stream_isolation() {
+  metrics::Accumulator acc(100000000);
+  for(uint64_t i=1;i<=200000;++i) acc.record(i,i);
+  assert(acc.retained_samples()==metrics::kSampleLimit);
+  auto report=acc.report();assert(report.received==200000 && report.lat_max==200000 && report.lat_min==1);
+  multiplex::Streams streams(2,4,64);
+  auto* a=streams.get({1,1});auto* b=streams.get({2,1});
+  assert(a && b && a!=b);
+  assert(a->dedupe.observe(1)==dedupe::ObserveResult::kAccept);
+  assert(b->dedupe.observe(1)==dedupe::ObserveResult::kAccept);
+  assert(!streams.get({3,1}));
+  assert(streams.get({1,1})->dedupe.observe(1)==dedupe::ObserveResult::kTooOld ||
+         a->dedupe.counters().duplicates+a->dedupe.counters().too_old>0);
+  printf("test_bounded_metrics_and_stream_isolation OK\n");
+}
+
 int main() {
+  test_ring_concurrent_overwrite_integrity();
+  test_ring_backpressure_and_dead_lock_owner();
+  test_bounded_metrics_and_stream_isolation();
+  test_fec_conflicting_closure_does_not_poison();
+  test_wire_golden_and_roundtrip();
+  test_fec_multiple_erasures();
   test_metrics_basic();
   test_metrics_drops();
   test_ring_roundtrip();

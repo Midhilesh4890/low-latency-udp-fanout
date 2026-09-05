@@ -45,6 +45,14 @@ target_compile_options(pulsefanout_tests PRIVATE -UNDEBUG)
 
 if(BUILD_TESTING)
   add_test(NAME pulsefanout_unit COMMAND pulsefanout_tests)
+  find_package(Python3 COMPONENTS Interpreter)
+  find_program(OPENSSL_EXECUTABLE openssl)
+  if(Python3_Interpreter_FOUND AND OPENSSL_EXECUTABLE)
+    add_test(NAME pulsefanout_integration
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/harness/test/test_integration.py" -v)
+    set_tests_properties(pulsefanout_integration PROPERTIES
+      ENVIRONMENT "PULSEFANOUT_BIN=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" TIMEOUT 90)
+  endif()
 endif()
 
 install(TARGETS producer sender receiver consumer RUNTIME DESTINATION bin)

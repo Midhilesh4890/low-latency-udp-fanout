@@ -19,9 +19,18 @@
 
 #include "fec.h"
 #include "message.h"
+#include "wire.h"
 #include "shm_ring.h"
 #include "shm_segment.h"
 #include "util.h"
+#include <deque>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+#include "stream_transport.h"
+#include "multiplex.h"
+#include <sys/random.h>
+#include <memory>
 
 namespace {
 
@@ -31,6 +40,9 @@ struct Destination {
 };
 
 struct Config {
+  uint64_t stream_id=0,stream_epoch=0;
+  bool allow_insecure_udp=false;
+  bool durable_acks=false;
   std::string in_shm = "/fanout_ring";
   uint32_t slots = 1024;
   std::string host = "127.0.0.1";
@@ -41,9 +53,12 @@ struct Config {
   uint64_t idle_ms = 2000;
   int sndbuf = 4 * 1024 * 1024;
   uint32_t repeat = 1;
+  uint32_t send_workers = 256;
+  size_t queue_bytes=4*1024*1024;
   uint32_t batch_size = 32;
   uint64_t batch_timeout_us = 50;
   uint16_t fec_k = 0;
+  uint16_t fec_parity = 1;
   uint64_t fec_timeout_us = 200;
   double test_drop_pct = 0.0;
   double test_reorder_pct = 0.0;
@@ -125,19 +140,27 @@ Config parse_args(int argc, char** argv) {
       }
       return argv[++i];
     };
-    if (a == "--in-shm") c.in_shm = next();
+    if (a == "--stream-id") c.stream_id=std::stoull(next());
+    else if (a == "--stream-epoch") c.stream_epoch=std::stoull(next());
+    else if (a == "--durable-acks") c.durable_acks=true;
+    else if (a == "--allow-insecure-udp") c.allow_insecure_udp=true;
+    else if (a == "--in-shm") c.in_shm = next();
     else if (a == "--slots") c.slots = static_cast<uint32_t>(std::stoul(next()));
     else if (a == "--host") c.host = next();
     else if (a == "--port") c.port = next();
+    else if (a == "--unix-dst") c.destinations.push_back(Destination{next(), ""});
     else if (a == "--dst") c.destinations.push_back(parse_destination(next()));
     else if (a == "--count") c.count = std::stoull(next());
     else if (a == "--from-edge") c.from_edge = true;
     else if (a == "--idle-ms") c.idle_ms = std::stoull(next());
     else if (a == "--sndbuf") c.sndbuf = std::stoi(next());
+    else if (a == "--queue-bytes") {auto n=std::stoull(next());if(n<65536 || n>64*1024*1024) throw std::invalid_argument("queue-bytes must be 65536..67108864");c.queue_bytes=n;}
+    else if (a == "--send-workers") { auto n=std::stoul(next()); if(n<1 || n>256) throw std::invalid_argument("send-workers must be 1..256"); c.send_workers=static_cast<uint32_t>(n); }
     else if (a == "--repeat") c.repeat = static_cast<uint32_t>(std::stoul(next()));
     else if (a == "--batch-size") c.batch_size = static_cast<uint32_t>(std::stoul(next()));
     else if (a == "--batch-timeout-us") c.batch_timeout_us = std::stoull(next());
-    else if (a == "--fec-k") c.fec_k = static_cast<uint16_t>(std::stoul(next()));
+    else if (a == "--fec-k") { auto n=std::stoul(next()); if(n>fec::kMaxGeneration) throw std::invalid_argument("fec-k exceeds 128"); c.fec_k=static_cast<uint16_t>(n); }
+    else if (a == "--fec-parity") { auto n=std::stoul(next()); if(n<1 || n>16) throw std::invalid_argument("fec-parity must be 1..16"); c.fec_parity=static_cast<uint16_t>(n); }
     else if (a == "--fec-timeout-us") c.fec_timeout_us = std::stoull(next());
     else if (a == "--test-drop-pct") c.test_drop_pct = std::stod(next());
     else if (a == "--test-reorder-pct") c.test_reorder_pct = std::stod(next());
@@ -176,14 +199,23 @@ Config parse_args(int argc, char** argv) {
   }
   if (c.fec_timeout_us == 0) c.fec_timeout_us = 1;
   if (c.destinations.empty()) c.destinations.push_back(Destination{c.host, c.port});
-  if (!c.echo_out_shm.empty() && (c.destinations.size() != 1 || c.repeat != 1 || c.fec_k != 0 || c.test_drop_pct != 0.0 || c.test_reorder_pct != 0.0)) {
+  if (!c.echo_out_shm.empty() && (c.destinations[0].port.empty() || c.destinations.size() != 1 || c.repeat != 1 || c.fec_k != 0 || c.test_drop_pct != 0.0 || c.test_reorder_pct != 0.0)) {
     fprintf(stderr, "echo mode requires one destination, repeat=1, fec-k=0, and no test impairment\n");
     std::exit(2);
   }
+  for(const auto& dst:c.destinations) if(!dst.port.empty() && !c.allow_insecure_udp)
+    throw std::invalid_argument("UDP requires --allow-insecure-udp; use --unix-dst for the TLS relay");
+  if(c.destinations.size()>c.send_workers) throw std::invalid_argument("send-workers must cover every destination for isolated queues");
+  if(c.queue_bytes*c.destinations.size()>1024ull*1024*1024) throw std::invalid_argument("total fan-out queue budget exceeds 1 GiB");
+  if(c.durable_acks) for(const auto& dst:c.destinations) if(!dst.port.empty()) throw std::invalid_argument("durable-acks requires Unix destinations");
+  auto random_id=[] {uint64_t id=0;if(getrandom(&id,sizeof(id),0)!=sizeof(id) || !id) throw std::runtime_error("stream identity generation failed");return id;};
+  if(!c.stream_id) c.stream_id=random_id();
+  if(!c.stream_epoch) c.stream_epoch=random_id();
   return c;
 }
 
 int open_udp_socket(const Destination& dst, int sndbuf, int rcvbuf, uint64_t echo_timeout_ms) {
+  if(dst.port.empty()) return transport::unix_socket(dst.host,false);
   addrinfo hints{};
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_DGRAM;
@@ -192,7 +224,7 @@ int open_udp_socket(const Destination& dst, int sndbuf, int rcvbuf, uint64_t ech
   const int rc = getaddrinfo(dst.host.c_str(), dst.port.c_str(), &hints, &result);
   if (rc != 0) {
     fprintf(stderr, "getaddrinfo(%s:%s) failed: %s\n", dst.host.c_str(), dst.port.c_str(), gai_strerror(rc));
-    std::exit(1);
+    throw std::runtime_error("socket setup failed");
   }
 
   int fd = -1;
@@ -200,6 +232,8 @@ int open_udp_socket(const Destination& dst, int sndbuf, int rcvbuf, uint64_t ech
     fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
     if (fd < 0) continue;
     setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+    timeval send_timeout{2,0};
+    setsockopt(fd,SOL_SOCKET,SO_SNDTIMEO,&send_timeout,sizeof(send_timeout));
     if (echo_timeout_ms != 0) {
       setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
       timeval timeout{};
@@ -215,7 +249,7 @@ int open_udp_socket(const Destination& dst, int sndbuf, int rcvbuf, uint64_t ech
 
   if (fd < 0) {
     perror("connect");
-    std::exit(1);
+    throw std::runtime_error("socket setup failed");
   }
   if (echo_timeout_ms != 0) {
     const int flags = fcntl(fd, F_GETFL, 0);
@@ -224,12 +258,14 @@ int open_udp_socket(const Destination& dst, int sndbuf, int rcvbuf, uint64_t ech
   return fd;
 }
 
+void stop_fanout();
 void close_sockets(const std::vector<int>& sockets) {
+  stop_fanout();
   for (int fd : sockets) close(fd);
 }
 
 Batch make_batch(uint32_t batch_size) {
-  const uint32_t datagram_cap = shm::kFrameCap + sizeof(fec::Envelope) + sizeof(uint16_t);
+  const uint32_t datagram_cap = wire::max_frame + fec::kEnvelopeSize + sizeof(uint16_t) + multiplex::header_size;
   Batch batch;
   batch.frames.resize(batch_size, std::vector<uint8_t>(datagram_cap));
   batch.iovecs.resize(batch_size);
@@ -257,17 +293,31 @@ void queue_datagram(Batch& batch, const uint8_t* data, uint32_t len) {
   ++batch.size;
 }
 
-bool flush_batch(const Config& cfg, const std::vector<int>& sockets, Batch& batch, SendCounters& counters) {
+bool flush_batch_direct(const Config& cfg, const std::vector<int>& sockets, Batch& batch, SendCounters& counters) {
   if (batch.size == 0) return true;
   for (uint32_t i = 0; i < batch.size; ++i) {
     batch.iovecs[i].iov_len = batch.lengths[i];
     batch.messages[i].msg_len = 0;
   }
   for (int sock : sockets) {
+    int kind=0; socklen_t kind_len=sizeof(kind);
+    if(getsockopt(sock,SOL_SOCKET,SO_TYPE,&kind,&kind_len)!=0) return false;
+    if(kind==SOCK_STREAM) {
+      for(uint32_t repeat=0;repeat<cfg.repeat;++repeat) for(uint32_t i=0;i<batch.size;++i) {
+        if(!transport::send_frame(sock,batch.frames[i].data(),batch.lengths[i])) return false;
+        if(cfg.durable_acks) {
+          uint8_t ack=0;
+          if(!transport::transfer(sock,&ack,1,false,util::steady_now_ns()+2000000000ull) || ack!=1) return false;
+        }
+        ++counters.packets; ++counters.send_calls;
+      }
+      continue;
+    }
     for (uint32_t repeat = 0; repeat < cfg.repeat; ++repeat) {
       uint32_t offset = 0;
       while (offset < batch.size) {
         const int n = sendmmsg(sock, batch.messages.data() + offset, batch.size - offset, 0);
+        if (n < 0 && errno == EINTR && !util::should_stop()) continue;
         if (n < 0) {
           perror("sendmmsg");
           return false;
@@ -295,9 +345,112 @@ bool flush_batch(const Config& cfg, const std::vector<int>& sockets, Batch& batc
   return true;
 }
 
+class Fanout {
+  struct Work {std::vector<std::vector<uint8_t>> frames;size_t bytes=0;};
+  struct DestinationState {
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::deque<Work> queue;
+    size_t bytes=0;
+    bool done=false,failed=false;
+    uint64_t rejected=0;
+    SendCounters counters;
+    std::thread thread;
+  };
+  const Config cfg_;
+  std::vector<std::unique_ptr<DestinationState>> destinations_;
+ public:
+  Fanout(const Config& cfg,const std::vector<int>& sockets):cfg_(cfg) {
+    for(size_t i=0;i<sockets.size();++i) {
+      destinations_.push_back(std::make_unique<DestinationState>());
+      auto* state=destinations_.back().get();
+      state->thread=std::thread([this,state,fd=sockets[i],i] {
+        for(;;) {
+          Work work;
+          {
+            std::unique_lock<std::mutex> lock(state->mutex);
+            state->cv.wait(lock,[&]{return state->done || state->failed || !state->queue.empty();});
+            if(state->failed || (state->done && state->queue.empty())) break;
+            work=std::move(state->queue.front());state->queue.pop_front();
+            state->bytes-=work.bytes;
+          }
+          Batch batch=make_batch(cfg_.batch_size);
+          for(auto& frame:work.frames) queue_datagram(batch,frame.data(),frame.size());
+          if(!flush_batch_direct(cfg_,{fd},batch,state->counters)) {
+            std::lock_guard<std::mutex> lock(state->mutex);
+            state->failed=true;state->rejected+=work.frames.size();
+            for(auto& queued:state->queue) state->rejected+=queued.frames.size();
+            state->queue.clear();state->bytes=0;
+            fprintf(stderr,"destination %zu failed; healthy destinations continue\n",i);
+            break;
+          }
+        }
+      });
+    }
+  }
+  void enqueue(const Batch& batch) {
+    for(size_t i=0;i<destinations_.size();++i) {
+      auto& state=*destinations_[i];
+      std::lock_guard<std::mutex> lock(state.mutex);
+      if(state.failed) {state.rejected+=batch.size;continue;}
+      size_t bytes=0;for(uint32_t j=0;j<batch.size;++j) bytes+=batch.lengths[j];
+      if(state.bytes+bytes>cfg_.queue_bytes) {
+        state.failed=true;state.rejected+=batch.size;
+        for(auto& queued:state.queue) state.rejected+=queued.frames.size();
+        state.queue.clear();state.bytes=0;
+        fprintf(stderr,"destination %zu queue full; isolated with explicit failure\n",i);
+      } else {
+        Work work;work.bytes=bytes;
+        for(uint32_t j=0;j<batch.size;++j) work.frames.emplace_back(batch.frames[j].begin(),batch.frames[j].begin()+batch.lengths[j]);
+        state.bytes+=bytes;state.queue.push_back(std::move(work));
+      }
+      state.cv.notify_one();
+    }
+  }
+  bool finish(SendCounters& counters) {
+    bool ok=true;
+    for(auto& state:destinations_) {
+      {std::lock_guard<std::mutex> lock(state->mutex);state->done=true;}
+      state->cv.notify_one();
+    }
+    for(size_t i=0;i<destinations_.size();++i) {
+      auto& state=*destinations_[i];
+      if(state.thread.joinable()) state.thread.join();
+      if(state.failed) ok=false;
+      counters.packets+=state.counters.packets;
+      counters.sendmmsg_calls+=state.counters.sendmmsg_calls;
+      counters.send_calls+=state.counters.send_calls;
+      counters.max_sendmmsg_batch=std::max(counters.max_sendmmsg_batch,state.counters.max_sendmmsg_batch);
+      fprintf(stderr,"destination %zu packets=%llu rejected=%llu failed=%s\n",i,
+        static_cast<unsigned long long>(state.counters.packets),
+        static_cast<unsigned long long>(state.rejected),state.failed?"true":"false");
+    }
+    return ok;
+  }
+  ~Fanout() {
+    for(auto& state:destinations_) {
+      {std::lock_guard<std::mutex> lock(state->mutex);state->done=true;state->failed=true;state->queue.clear();}
+      state->cv.notify_one();
+      if(state->thread.joinable()) state->thread.join();
+    }
+  }
+};
+std::unique_ptr<Fanout> fanout;
+void stop_fanout() {fanout.reset();}
+bool flush_batch(const Config& cfg,const std::vector<int>& sockets,Batch& batch,SendCounters& counters) {
+  if(!batch.size) return true;
+  for(uint32_t i=0;i<batch.size;++i) {
+    auto packet=multiplex::wrap({cfg.stream_id,cfg.stream_epoch},batch.frames[i].data(),batch.lengths[i]);
+    batch.lengths[i]=static_cast<uint32_t>(packet.size());
+    std::memcpy(batch.frames[i].data(),packet.data(),packet.size());
+  }
+  if(!fanout) return flush_batch_direct(cfg,sockets,batch,counters);
+  fanout->enqueue(batch);batch.size=0;batch.first_ns=0;return true;
+}
+
 bool drain_echo(int sock) {
   if (echo_context == nullptr) return true;
-  uint8_t frame[shm::kFrameCap];
+  uint8_t frame[wire::max_frame+64];
   for (;;) {
     const ssize_t n = recv(sock, frame, sizeof(frame), MSG_DONTWAIT);
     if (n > 0) {
@@ -305,7 +458,10 @@ bool drain_echo(int sock) {
         fprintf(stderr, "invalid echoed datagram length: %zd\n", n);
         return false;
       }
-      echo_context->ring->publish(frame, static_cast<uint32_t>(n));
+      uint8_t native[shm::kFrameCap]; uint32_t native_len=0;
+      const uint8_t* payload=frame;uint32_t payload_len=static_cast<uint32_t>(n);multiplex::Key key;
+      if(!multiplex::unwrap(payload,payload_len,key) || !wire::decode(payload,payload_len,native,native_len)) return false;
+      echo_context->ring->publish(native, native_len);
       ++echo_context->received;
     } else if (n < 0 && errno == EINTR) {
       continue;
@@ -349,6 +505,7 @@ bool emit_datagram(const Config& cfg, const std::vector<int>& sockets, Batch& ba
     PendingDatagram pending_datagram;
     pending_datagram.bytes.assign(data, data + len);
     pending_datagram.release_ns = now_ns + cfg.test_reorder_delay_us * 1000ull;
+    if(pending.size()>=65536) {fprintf(stderr,"impairment queue limit exceeded\n");return false;}
     pending.push_back(std::move(pending_datagram));
     ++test_reordered;
     return true;
@@ -359,7 +516,7 @@ bool emit_datagram(const Config& cfg, const std::vector<int>& sockets, Batch& ba
 
 }
 
-int main(int argc, char** argv) {
+int run(int argc, char** argv) {
   Config cfg;
   try {
     cfg = parse_args(argc, argv);
@@ -379,6 +536,7 @@ int main(int argc, char** argv) {
   if (!cfg.echo_out_shm.empty()) {
     echo_segment.emplace(shm::Segment::open(cfg.echo_out_shm, shm::region_size(cfg.slots), true));
     echo_ring.attach(echo_segment->base(), cfg.slots, true);
+    echo_segment->ready();
     echo_state.ring = &echo_ring;
     echo_context = &echo_state;
   }
@@ -387,13 +545,15 @@ int main(int argc, char** argv) {
   sockets.reserve(cfg.destinations.size());
   for (const auto& dst : cfg.destinations) sockets.push_back(open_udp_socket(dst, cfg.sndbuf, cfg.rcvbuf, cfg.echo_out_shm.empty() ? 0 : cfg.echo_timeout_ms));
 
+  if(sockets.size()>1) fanout=std::make_unique<Fanout>(cfg,sockets);
+
   const bool plain_fast_path = cfg.fec_k == 0 && cfg.test_drop_pct == 0.0 && cfg.test_reorder_pct == 0.0 && cfg.echo_out_shm.empty();
   fprintf(stderr, "sender: in_shm=%s slots=%u targets=%zu count=%llu from_edge=%s sndbuf=%d repeat=%u batch_size=%u batch_timeout_us=%llu fec_k=%u fec_timeout_us=%llu test_drop_pct=%.6f test_reorder_pct=%.6f test_reorder_delay_us=%llu test_seed=%llu orderbook_size=%zu worst_datagram=%zu echo_out_shm=%s rcvbuf=%d echo_timeout_ms=%llu fast_path=%s\n",
           cfg.in_shm.c_str(), cfg.slots, sockets.size(), static_cast<unsigned long long>(cfg.count), cfg.from_edge ? "true" : "false",
           cfg.sndbuf, cfg.repeat, cfg.batch_size, static_cast<unsigned long long>(cfg.batch_timeout_us), cfg.fec_k,
           static_cast<unsigned long long>(cfg.fec_timeout_us), cfg.test_drop_pct, cfg.test_reorder_pct,
           static_cast<unsigned long long>(cfg.test_reorder_delay_us), static_cast<unsigned long long>(cfg.test_seed), sizeof(msg::OrderBook),
-          sizeof(fec::Envelope) + sizeof(uint16_t) + sizeof(msg::OrderBook), cfg.echo_out_shm.empty() ? "none" : cfg.echo_out_shm.c_str(), cfg.rcvbuf,
+          fec::kEnvelopeSize + sizeof(uint16_t) + sizeof(msg::OrderBook), cfg.echo_out_shm.empty() ? "none" : cfg.echo_out_shm.c_str(), cfg.rcvbuf,
           static_cast<unsigned long long>(cfg.echo_timeout_ms), plain_fast_path ? "true" : "false");
 
   uint64_t read_index = cfg.from_edge ? ring.live_edge() : 0;
@@ -417,9 +577,9 @@ int main(int argc, char** argv) {
   uint64_t fec_last_arrival_ns = 0;
   uint32_t fec_gen_id = 0;
   std::vector<uint64_t> fec_arrival_intervals;
-  if (cfg.fec_k != 0 && cfg.count > 1) fec_arrival_intervals.reserve(cfg.count - 1);
+  if (cfg.fec_k != 0 && cfg.count > 1) fec_arrival_intervals.reserve(std::min<uint64_t>(cfg.count - 1,metrics::kSampleLimit));
 
-  fec::Encoder encoder(cfg.fec_k == 0 ? 1 : cfg.fec_k);
+  fec::Encoder encoder(cfg.fec_k == 0 ? 1 : cfg.fec_k, cfg.fec_parity);
   std::vector<PendingDatagram> pending;
   std::mt19937_64 rng(cfg.test_seed);
   std::uniform_real_distribution<double> dist(0.0, 100.0);
@@ -431,6 +591,10 @@ int main(int argc, char** argv) {
     if (cfg.fec_k == 0 || encoder.empty()) return true;
     fec::BuiltGeneration built = encoder.close(fec_gen_id, static_cast<uint8_t>(reason));
     if (!emit_datagram(cfg, sockets, batch, send_counters, pending, rng, dist, built.parity.data(), static_cast<uint32_t>(built.parity.size()), test_dropped, test_reordered)) return false;
+    for(const auto& parity:built.extra_parity) {
+      if(!emit_datagram(cfg,sockets,batch,send_counters,pending,rng,dist,parity.data(),static_cast<uint32_t>(parity.size()),test_dropped,test_reordered)) return false;
+      ++fec_parity_sent; fec_parity_bytes+=parity.size();
+    }
     ++fec_parity_sent;
     fec_parity_bytes += built.parity.size();
     if (reason == 0) ++fec_closed_by_k;
@@ -441,7 +605,7 @@ int main(int argc, char** argv) {
     return true;
   };
 
-  uint8_t frame[shm::kFrameCap];
+  uint8_t frame[wire::max_frame+64];
   while (!util::should_stop() && (cfg.count == 0 || sent < cfg.count)) {
     if (echo_context != nullptr && !drain_echo(sockets[0])) {
       close_sockets(sockets);
@@ -468,6 +632,12 @@ int main(int argc, char** argv) {
         uint64_t resume = 0;
         auto st = ring.read(read_index, batch.frames[batch.size].data(), &len, &resume);
         if (st == shm::Ring::FrameStatus::kOk) {
+          msg::Header h{};std::memcpy(&h,batch.frames[batch.size].data(),sizeof(h));
+          h.stream_id=cfg.stream_id;h.stream_epoch=cfg.stream_epoch;
+          std::memcpy(batch.frames[batch.size].data(),&h,sizeof(h));
+          auto encoded = wire::encode(batch.frames[batch.size].data(), len);
+          len = static_cast<uint32_t>(encoded.size());
+          std::memcpy(batch.frames[batch.size].data(), encoded.data(), len);
           fec_data_bytes += len;
           batch.lengths[batch.size] = len;
           if (batch.size == 0) batch.first_ns = loop_now;
@@ -499,6 +669,7 @@ int main(int argc, char** argv) {
         return 1;
       }
       if (made_progress) continue;
+      util::idle_wait(last_progress);
       const uint64_t now_ns = util::steady_now_ns();
       if (now_ns - last_progress > idle_ns) {
         idle_terminated = true;
@@ -512,9 +683,15 @@ int main(int argc, char** argv) {
     auto st = ring.read(read_index, frame, &len, &resume);
 
     if (st == shm::Ring::FrameStatus::kOk) {
+      msg::Header h{};std::memcpy(&h,frame,sizeof(h));
+      h.stream_id=cfg.stream_id;h.stream_epoch=cfg.stream_epoch;
+      std::memcpy(frame,&h,sizeof(h));
+      auto encoded = wire::encode(frame, len);
+      len = static_cast<uint32_t>(encoded.size());
+      std::memcpy(frame, encoded.data(), len);
       if (cfg.fec_k != 0) {
         const uint64_t fec_arrival_ns = loop_now;
-        if (fec_last_arrival_ns != 0) fec_arrival_intervals.push_back(fec_arrival_ns - fec_last_arrival_ns);
+        if (fec_last_arrival_ns != 0) metrics::sample(fec_arrival_intervals,fec_arrival_ns-fec_last_arrival_ns,sent);
         fec_last_arrival_ns = fec_arrival_ns;
       }
       if (cfg.fec_k == 0) {
@@ -556,6 +733,7 @@ int main(int argc, char** argv) {
       close_sockets(sockets);
       return 1;
     } else {
+      util::idle_wait(last_progress);
       const uint64_t now_ns = util::steady_now_ns();
       if (!flush_pending(cfg, sockets, batch, send_counters, pending, now_ns, false)) {
         close_sockets(sockets);
@@ -591,6 +769,7 @@ int main(int argc, char** argv) {
         close_sockets(sockets);
         return 1;
       }
+      util::idle_wait(last_progress);
       if (util::steady_now_ns() > deadline) {
         fprintf(stderr, "echo timeout: received=%llu expected=%llu\n", static_cast<unsigned long long>(echo_state.received),
                 static_cast<unsigned long long>(send_counters.packets));
@@ -599,6 +778,9 @@ int main(int argc, char** argv) {
       }
     }
   }
+
+  bool destinations_ok=true;
+  if(fanout) {destinations_ok=fanout->finish(send_counters);fanout.reset();}
 
   const uint64_t sender_duration_ns = util::steady_now_ns() - sender_start_ns;
   const uint64_t sender_active_ns = idle_terminated && sender_duration_ns > idle_ns ? sender_duration_ns - idle_ns : sender_duration_ns;
@@ -619,5 +801,12 @@ int main(int argc, char** argv) {
           static_cast<unsigned long long>(arrival_stats.max), static_cast<unsigned long long>(test_dropped),
           static_cast<unsigned long long>(test_reordered));
   close_sockets(sockets);
+  if(!destinations_ok) return 1;
+  if(cfg.count && sent < cfg.count) { fprintf(stderr,"incomplete counted run\n"); return 1; }
   return 0;
+}
+
+int main(int argc,char** argv) {
+  try {return run(argc,argv);}
+  catch(const std::exception& error) {fprintf(stderr,"sender: %s\n",error.what());return 1;}
 }

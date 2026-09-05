@@ -1,3 +1,5 @@
+> For current portable protocol, secure mode, FEC options, and coordinated startup, see [the root README](../README.md) and [transport operations](../docs/transport.md). Historical benchmark descriptions below may refer to the original native/XOR transport.
+
 # Transport internals
 
 This directory contains the four PulseFanout processes and the header-only transport primitives they share.

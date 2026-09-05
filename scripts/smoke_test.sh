@@ -44,7 +44,7 @@ for executable in producer sender receiver consumer; do
   [ -x "$bin_dir/$executable" ] || fail "missing executable $bin_dir/$executable"
 done
 
-timeout 15s "$bin_dir/receiver" --out-shm "$output_shm" --slots "$slots" --bind 127.0.0.1 --port "$port" --count "$count" --idle-ms 5000 >"$log_dir/receiver.log" 2>&1 &
+timeout 15s "$bin_dir/receiver" --allow-insecure-udp --out-shm "$output_shm" --slots "$slots" --bind 127.0.0.1 --port "$port" --count "$count" --idle-ms 5000 >"$log_dir/receiver.log" 2>&1 &
 receiver_pid=$!
 pids+=("$receiver_pid")
 wait_for_shm "$output_shm" || fail "receiver did not create its shared-memory ring"
@@ -58,7 +58,7 @@ producer_pid=$!
 pids+=("$producer_pid")
 wait_for_shm "$input_shm" || fail "producer did not create its shared-memory ring"
 
-timeout 15s "$bin_dir/sender" --in-shm "$input_shm" --slots "$slots" --dst "127.0.0.1:$port" --count "$count" --idle-ms 5000 --batch-size 32 --batch-timeout-us 50 >"$log_dir/sender.log" 2>&1 &
+timeout 15s "$bin_dir/sender" --allow-insecure-udp --in-shm "$input_shm" --slots "$slots" --dst "127.0.0.1:$port" --count "$count" --idle-ms 5000 --batch-size 32 --batch-timeout-us 50 >"$log_dir/sender.log" 2>&1 &
 sender_pid=$!
 pids+=("$sender_pid")
 

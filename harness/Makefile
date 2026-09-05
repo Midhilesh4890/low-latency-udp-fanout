@@ -7,7 +7,7 @@ LDLIBS   ?= -lrt -lpthread
 BIN := bin
 BINARIES := $(BIN)/producer $(BIN)/consumer $(BIN)/sender $(BIN)/receiver
 
-.PHONY: all clean test smoke
+.PHONY: all clean test smoke integration
 
 all: $(BINARIES)
 
@@ -28,6 +28,9 @@ $(BIN)/receiver: src/receiver.cpp include/*.h | $(BIN)
 
 test: $(BINARIES) $(BIN)/test_harness
 	./$(BIN)/test_harness
+
+integration: all
+	PULSEFANOUT_BIN=$(CURDIR)/bin python3 test/test_integration.py -v
 
 smoke: all
 	../scripts/smoke_test.sh ./$(BIN)

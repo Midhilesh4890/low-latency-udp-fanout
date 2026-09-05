@@ -22,6 +22,7 @@ struct Config {
   uint64_t count = 1000000;
   double rate = 0.0;
   uint64_t start_delay_ms = 0;
+  uint32_t wait_readers = 0;
   Kind kind = Kind::Mixed;
 };
 
@@ -49,6 +50,7 @@ Config parse_args(int argc, char** argv) {
     else if (a == "--slots") c.slots = static_cast<uint32_t>(std::stoul(next()));
     else if (a == "--count") c.count = std::stoull(next());
     else if (a == "--rate") c.rate = std::stod(next());
+    else if (a == "--wait-readers") c.wait_readers = static_cast<uint32_t>(std::stoul(next()));
     else if (a == "--start-delay-ms") c.start_delay_ms = std::stoull(next());
     else if (a == "--type") c.kind = parse_kind(next());
     else {
@@ -74,6 +76,8 @@ void set_str(char* dst, uint32_t cap, const char* src) {
 
 void fill_header(msg::Header& h, uint64_t seq, msg::Type type, uint32_t body_len) {
   h.seq_id = seq;
+  h.stream_id=static_cast<uint64_t>(getpid());
+  static const auto epoch=util::steady_now_ns();h.stream_epoch=epoch;
   h.type = static_cast<uint16_t>(type);
   h.version = msg::kVersion;
   h.body_len = body_len;
@@ -81,7 +85,7 @@ void fill_header(msg::Header& h, uint64_t seq, msg::Type type, uint32_t body_len
 }
 
 uint32_t build_trade(void* buf, uint64_t seq) {
-  auto& m = *reinterpret_cast<msg::Trade*>(buf);
+  auto& m = *new(buf) msg::Trade{};
   set_str(m.symbol, msg::kSymbolLen, "BTCUSDT");
   set_str(m.venue, msg::kVenueLen, "BINANCE");
   set_str(m.base_currency, msg::kCurrencyLen, "BTC");
@@ -108,7 +112,7 @@ uint32_t build_trade(void* buf, uint64_t seq) {
 }
 
 uint32_t build_bbo(void* buf, uint64_t seq) {
-  auto& m = *reinterpret_cast<msg::Bbo*>(buf);
+  auto& m = *new(buf) msg::Bbo{};
   set_str(m.symbol, msg::kSymbolLen, "BTCUSDT");
   set_str(m.venue, msg::kVenueLen, "BINANCE");
   m.update_id = 900000 + seq;
@@ -132,7 +136,7 @@ uint32_t build_bbo(void* buf, uint64_t seq) {
 }
 
 uint32_t build_book(void* buf, uint64_t seq) {
-  auto& m = *reinterpret_cast<msg::OrderBook*>(buf);
+  auto& m = *new(buf) msg::OrderBook{};
   set_str(m.symbol, msg::kSymbolLen, "BTCUSDT");
   set_str(m.venue, msg::kVenueLen, "BINANCE");
   m.update_id = 900000 + seq;
@@ -192,7 +196,7 @@ const char* kind_name(Kind k) {
 
 }
 
-int main(int argc, char** argv) {
+int run(int argc, char** argv) {
   Config cfg;
   try {
     cfg = parse_args(argc, argv);
@@ -206,7 +210,13 @@ int main(int argc, char** argv) {
       shm::Segment::open(cfg.shm_name, shm::region_size(cfg.slots), true);
   shm::Ring ring;
   ring.attach(seg.base(), cfg.slots, true);
+  seg.ready();
 
+  const auto attach_deadline=util::steady_now_ns()+5000000000ull;
+  while(!util::should_stop() && ring.reader_count()<cfg.wait_readers) {
+    if(util::steady_now_ns()>attach_deadline) { fprintf(stderr,"reader attachment timed out\n"); return 1; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
   alignas(64) uint8_t frame[shm::kFrameCap];
 
   if (cfg.start_delay_ms != 0) std::this_thread::sleep_for(std::chrono::milliseconds(cfg.start_delay_ms));
@@ -224,6 +234,8 @@ int main(int argc, char** argv) {
   while (!util::should_stop() && (cfg.count == 0 || seq < cfg.count)) {
     if (interval_ns) {
       while (!util::should_stop() && util::steady_now_ns() < next_send) {
+        const auto remaining=next_send-util::steady_now_ns();
+        if(remaining>100000 && remaining<interval_ns) std::this_thread::sleep_for(std::chrono::nanoseconds(remaining-50000));
       }
       next_send += interval_ns;
     }
@@ -236,4 +248,9 @@ int main(int argc, char** argv) {
           static_cast<unsigned long long>(seq));
   seg.unlink();
   return 0;
+}
+
+int main(int argc,char** argv) {
+  try {return run(argc,argv);}
+  catch(const std::exception& error) {fprintf(stderr,"producer: %s\n",error.what());return 1;}
 }

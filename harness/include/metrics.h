@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <vector>
+#include "samples.h"
+#include <limits>
 
 namespace metrics {
 
@@ -21,7 +23,7 @@ struct Report {
 class Accumulator {
  public:
   explicit Accumulator(size_t reserve = 0) {
-    if (reserve) latencies_.reserve(reserve);
+    if (reserve) latencies_.reserve(std::min(reserve,kSampleLimit));
   }
 
   void record(uint64_t seq_id, uint64_t latency_ns) {
@@ -33,9 +35,12 @@ class Accumulator {
       if (seq_id > last_seq_) last_seq_ = seq_id;
     }
     ++received_;
-    latencies_.push_back(latency_ns);
+    sample(latencies_,latency_ns,received_);
+    min_=std::min(min_,latency_ns);max_=std::max(max_,latency_ns);
     sum_ += static_cast<double>(latency_ns);
   }
+
+  size_t retained_samples() const {return latencies_.size();}
 
   Report report() const {
     Report r;
@@ -50,8 +55,8 @@ class Accumulator {
 
     std::vector<uint64_t> s = latencies_;
     std::sort(s.begin(), s.end());
-    r.lat_min = s.front();
-    r.lat_max = s.back();
+    r.lat_min = min_;
+    r.lat_max = max_;
     r.lat_mean = sum_ / static_cast<double>(received_);
     r.p01 = percentile(s, 0.01);
     r.p50 = percentile(s, 0.50);
@@ -73,6 +78,7 @@ class Accumulator {
     return sorted[rank - 1];
   }
 
+  uint64_t min_=std::numeric_limits<uint64_t>::max(), max_=0;
   uint64_t received_ = 0;
   uint64_t first_seq_ = 0;
   uint64_t last_seq_ = 0;

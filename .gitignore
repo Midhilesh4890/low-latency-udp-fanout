@@ -3,3 +3,6 @@ build/
 build-*/
 cmake-build-*/
 *.zip
+
+__pycache__/
+*.pyc

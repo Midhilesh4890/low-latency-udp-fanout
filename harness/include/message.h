@@ -9,7 +9,7 @@ inline constexpr uint32_t kSymbolLen = 16;
 inline constexpr uint32_t kVenueLen = 16;
 inline constexpr uint32_t kCurrencyLen = 8;
 inline constexpr uint32_t kBookDepth = 5;
-inline constexpr uint16_t kVersion = 1;
+inline constexpr uint16_t kVersion = 2;
 
 enum class Type : uint16_t {
   Trade = 1,
@@ -24,6 +24,8 @@ struct Header {
   uint16_t type;
   uint16_t version;
   uint32_t body_len;
+  uint64_t stream_id;
+  uint64_t stream_epoch;
 };
 
 struct alignas(64) Trade {

@@ -8,14 +8,16 @@
 #include <vector>
 
 #include "message.h"
+#include "wire.h"
+#include "samples.h"
+#include <stdexcept>
 #include "shm_ring.h"
 
 namespace fec {
 
-inline constexpr uint32_t kMagic = 0x46454331;
-inline constexpr uint16_t kMaxGeneration = 256;
+inline constexpr uint32_t kMagic = 0x46454332;
+inline constexpr uint16_t kMaxGeneration = 128;
 
-#pragma pack(push, 1)
 struct Envelope {
   uint32_t magic;
   uint32_t gen_id;
@@ -25,10 +27,36 @@ struct Envelope {
   uint16_t protected_len;
   uint8_t close_reason;
 };
-#pragma pack(pop)
 
-static_assert(sizeof(Envelope) == 17, "fec envelope must be 17 bytes");
-static_assert(sizeof(Envelope) + sizeof(uint16_t) + msg::kMaxFrame <= 1500, "fec datagram must fit mtu");
+inline constexpr size_t kEnvelopeSize=17;
+static_assert(kEnvelopeSize + sizeof(uint16_t) + msg::kMaxFrame <= 1500, "fec datagram must fit mtu");
+
+// Cauchy Reed-Solomon coefficients over GF(256), polynomial 0x11d.
+// Normalize columns so parity row zero remains XOR.
+inline uint8_t mul(uint8_t a, uint8_t b) {
+  uint8_t out=0;
+  while(b) { if(b&1) out^=a; bool high=a&128; a<<=1; if(high) a^=0x1d; b>>=1; }
+  return out;
+}
+inline uint8_t inverse(uint8_t a) {
+  if(!a) throw std::invalid_argument("zero GF inverse");
+  uint8_t out=1; for(int n=254;n;n>>=1,a=mul(a,a)) if(n&1) out=mul(out,a);
+  return out;
+}
+inline uint8_t coefficient(uint16_t row,uint16_t col) {
+  return mul(static_cast<uint8_t>(col^128), inverse(static_cast<uint8_t>(col^(128+row))));
+}
+inline void write_envelope(uint8_t* out,const Envelope& h) {
+  wire::Writer w;
+  auto v=h;
+  w(v.magic,v.gen_id,v.index,v.k,v.parity_count,v.protected_len,v.close_reason);
+  std::memcpy(out,w.bytes.data(),kEnvelopeSize);
+}
+inline Envelope read_envelope(const uint8_t* data) {
+  Envelope h{}; wire::Reader r{data,kEnvelopeSize};
+  r(h.magic,h.gen_id,h.index,h.k,h.parity_count,h.protected_len,h.close_reason);
+  return h;
+}
 
 inline void put_u16(std::vector<uint8_t>& out, uint16_t value) {
   out[0] = static_cast<uint8_t>(value & 255u);
@@ -47,24 +75,27 @@ inline std::vector<uint8_t> protected_frame(const uint8_t* frame, uint16_t len, 
 }
 
 inline std::vector<uint8_t> data_datagram(uint32_t gen_id, uint16_t index, uint16_t k, const uint8_t* frame, uint16_t len) {
-  std::vector<uint8_t> out(sizeof(Envelope) + len);
+  std::vector<uint8_t> out(kEnvelopeSize + len);
   Envelope header{kMagic, gen_id, index, k, 0, len, 0};
-  std::memcpy(out.data(), &header, sizeof(header));
-  std::memcpy(out.data() + sizeof(header), frame, len);
+  write_envelope(out.data(), header);
+  std::memcpy(out.data() + kEnvelopeSize, frame, len);
   return out;
 }
 
 struct BuiltGeneration {
   std::vector<std::vector<uint8_t>> data;
   std::vector<uint8_t> parity;
+  std::vector<std::vector<uint8_t>> extra_parity;
 };
 
 class Encoder {
  public:
-  explicit Encoder(uint16_t k) : k_(k) {}
+  explicit Encoder(uint16_t k, uint16_t parity_count=1) : k_(k), parity_count_(parity_count) {
+    if(k==0 || k>kMaxGeneration || parity_count==0 || parity_count>16) throw std::invalid_argument("FEC requires k=1..128, parity=1..16");
+  }
 
   bool add(const uint8_t* frame, uint16_t len) {
-    if (frames_.size() == k_) return false;
+    if (!frame || !len || len>wire::max_frame || frames_.size() == k_) return false;
     frames_.push_back(std::vector<uint8_t>(frame, frame + len));
     if (len > max_len_) max_len_ = len;
     return true;
@@ -75,6 +106,7 @@ class Encoder {
   bool full() const { return frames_.size() == k_; }
 
   BuiltGeneration close(uint32_t gen_id, uint8_t close_reason) {
+    if(empty()) throw std::invalid_argument("empty FEC generation");
     const uint16_t actual_k = static_cast<uint16_t>(frames_.size());
     std::vector<uint8_t> parity(static_cast<size_t>(max_len_) + sizeof(uint16_t), 0);
     BuiltGeneration built;
@@ -83,10 +115,23 @@ class Encoder {
       std::vector<uint8_t> protected_data = protected_frame(frames_[i].data(), static_cast<uint16_t>(frames_[i].size()), max_len_);
       for (size_t j = 0; j < parity.size(); ++j) parity[j] ^= protected_data[j];
     }
-    built.parity.resize(sizeof(Envelope) + parity.size());
-    Envelope header{kMagic, gen_id, actual_k, actual_k, 1, static_cast<uint16_t>(parity.size()), close_reason};
-    std::memcpy(built.parity.data(), &header, sizeof(header));
-    std::memcpy(built.parity.data() + sizeof(header), parity.data(), parity.size());
+    built.parity.resize(kEnvelopeSize + parity.size());
+    Envelope header{kMagic, gen_id, actual_k, actual_k, parity_count_, static_cast<uint16_t>(parity.size()), close_reason};
+    write_envelope(built.parity.data(), header);
+    std::memcpy(built.parity.data() + kEnvelopeSize, parity.data(), parity.size());
+    for(uint16_t row=1;row<parity_count_;++row) {
+      std::vector<uint8_t> shard(parity.size(),0);
+      for(uint16_t col=0;col<actual_k;++col) {
+        auto block=protected_frame(frames_[col].data(),static_cast<uint16_t>(frames_[col].size()),max_len_);
+        auto c=coefficient(row,col);
+        for(size_t j=0;j<shard.size();++j) shard[j]^=mul(c,block[j]);
+      }
+      std::vector<uint8_t> packet(kEnvelopeSize+shard.size());
+      header.index=actual_k+row; header.parity_count=parity_count_;
+      write_envelope(packet.data(),header);
+      std::memcpy(packet.data()+kEnvelopeSize,shard.data(),shard.size());
+      built.extra_parity.push_back(std::move(packet));
+    }
     frames_.clear();
     max_len_ = 0;
     return built;
@@ -94,6 +139,7 @@ class Encoder {
 
  private:
   uint16_t k_;
+  uint16_t parity_count_;
   uint16_t max_len_ = 0;
   std::vector<std::vector<uint8_t>> frames_;
 };
@@ -127,43 +173,60 @@ class Decoder {
 
   template <class Publish>
   bool receive(const uint8_t* data, uint32_t len, uint64_t now_ns, Publish publish) {
-    if (len < sizeof(Envelope)) return call_publish(publish, data, len, false, 0);
+    if (len < kEnvelopeSize) return call_publish(publish, data, len, false, 0);
     Envelope envelope{};
-    std::memcpy(&envelope, data, sizeof(envelope));
+    envelope=read_envelope(data);
     if (envelope.magic != kMagic) return call_publish(publish, data, len, false, 0);
-    if (envelope.k == 0 || envelope.k > kMaxGeneration) return false;
-    const uint8_t* payload = data + sizeof(Envelope);
-    const uint32_t payload_len = len - sizeof(Envelope);
+    if (envelope.k == 0 || envelope.k > kMaxGeneration || envelope.close_reason>2) return false;
+    const uint8_t* payload = data + kEnvelopeSize;
+    const uint32_t payload_len = len - kEnvelopeSize;
     if (envelope.parity_count == 0) {
-      if (payload_len != envelope.protected_len || envelope.protected_len > shm::kFrameCap ||
+      if (!payload_len || payload_len != envelope.protected_len || envelope.protected_len > wire::max_frame ||
           envelope.index >= envelope.k) return false;
       Generation& gen = slot(envelope.gen_id, envelope.k, now_ns);
+      if(envelope.k<gen.k || (!gen.parity_received && envelope.k!=gen.k)) return false;
       ensure(gen, envelope.k);
       if (envelope.index >= gen.k) return false;
       gen.seen_any = true;
       gen.first_ns = gen.first_ns == 0 ? now_ns : gen.first_ns;
+      if (!call_publish(publish, payload, payload_len, false, gen.close_reason)) return false;
       gen.data[envelope.index] = protected_frame(payload, envelope.protected_len, envelope.protected_len);
       gen.received[envelope.index] = true;
-      if (!call_publish(publish, payload, payload_len, false, gen.close_reason)) return false;
       return try_recover(gen, now_ns, publish);
     }
-    if (envelope.parity_count != 1 || envelope.index != envelope.k ||
+    if (envelope.parity_count > 16 || envelope.index < envelope.k || envelope.index >= envelope.k+envelope.parity_count ||
         envelope.protected_len != payload_len || payload_len < sizeof(uint16_t) ||
-        payload_len > shm::kFrameCap + sizeof(uint16_t)) return false;
+        payload_len > wire::max_frame + sizeof(uint16_t)) return false;
     ++counters_.parity_received;
     Generation& gen = slot(envelope.gen_id, envelope.k, now_ns);
+    // Validate closure before changing dimensions of an existing generation.
+    if(gen.parity_received && (gen.k!=envelope.k || gen.parity_count!=envelope.parity_count ||
+                               gen.close_reason!=envelope.close_reason)) return false;
+    if(envelope.k>gen.k) return false;
+    for(size_t i=envelope.k;i<gen.received.size();++i) if(gen.received[i]) return false;
     ensure(gen, envelope.k);
     gen.seen_any = true;
     gen.first_ns = gen.first_ns == 0 ? now_ns : gen.first_ns;
     gen.close_reason = envelope.close_reason;
-    gen.parity.assign(payload, payload + payload_len);
+    gen.parity_count = envelope.parity_count;
+    const auto row=envelope.index-envelope.k;
+    if(gen.parities.empty()) gen.parities.resize(16);
+    for(const auto& existing:gen.parities)
+      if(!existing.empty() && existing.size()!=payload_len) return false;
+    gen.parities[row].assign(payload, payload + payload_len);
     gen.parity_received = true;
     return try_recover(gen, now_ns, publish);
+  }
+
+  void expire(uint64_t now_ns, uint64_t ttl_ns=1000000000ull) {
+    for(auto& gen:slots_) if(gen.active && now_ns-gen.first_ns>=ttl_ns) { finalize(gen); gen=Generation{}; }
   }
 
   void retire_all() {
     for (Generation& gen : slots_) finalize(gen);
   }
+
+  static RecoveryStats summarize(const std::vector<uint64_t>& source) {return recovery_stats_for(source);}
 
   const Counters& counters() const { return counters_; }
 
@@ -173,6 +236,10 @@ class Decoder {
 
   SplitRecoveryStats split_recovery_stats() const {
     return SplitRecoveryStats{recovery_stats_for(recovery_by_k_), recovery_stats_for(recovery_by_timeout_), recovery_stats_for(recovery_by_flush_)};
+  }
+
+  const std::vector<uint64_t>& samples_for(uint8_t reason) const {
+    return reason==0?recovery_by_k_:(reason==1?recovery_by_timeout_:recovery_by_flush_);
   }
 
   const std::vector<uint64_t>& recovery_latencies() const {
@@ -201,10 +268,11 @@ class Decoder {
     bool unrecoverable_counted = false;
     uint32_t gen_id = 0;
     uint16_t k = 0;
+    uint16_t parity_count = 0;
     uint8_t close_reason = 0;
     uint64_t first_ns = 0;
     std::vector<std::vector<uint8_t>> data;
-    std::vector<uint8_t> parity;
+    std::vector<std::vector<uint8_t>> parities;
     std::vector<uint8_t> received;
   };
 
@@ -249,27 +317,59 @@ class Decoder {
       if (gen.received[i]) --missing;
       else missing_index = i;
     }
-    if (missing != 1) return true;
-    std::vector<uint8_t> recovered = gen.parity;
-    for (uint16_t i = 0; i < gen.k; ++i) {
-      if (!gen.received[i]) continue;
-      for (size_t j = 0; j < gen.data[i].size() && j < recovered.size(); ++j) recovered[j] ^= gen.data[i][j];
+    (void)missing_index;
+    if(!missing) return true;
+    std::vector<uint16_t> absent, rows;
+    for(uint16_t i=0;i<gen.k;++i) if(!gen.received[i]) absent.push_back(i);
+    for(uint16_t i=0;i<gen.parities.size();++i) if(!gen.parities[i].empty()) rows.push_back(i);
+    if(rows.size()<missing) return true;
+    rows.resize(missing);
+    const size_t width=gen.parities[rows[0]].size();
+    std::vector<std::vector<uint8_t>> matrix(missing,std::vector<uint8_t>(missing));
+    std::vector<std::vector<uint8_t>> rhs;
+    for(uint16_t r=0;r<missing;++r) {
+      rhs.push_back(gen.parities[rows[r]]);
+      for(uint16_t c=0;c<missing;++c) matrix[r][c]=coefficient(rows[r],absent[c]);
+      for(uint16_t c=0;c<gen.k;++c) if(gen.received[c]) {
+        if(gen.data[c].size()>width) return false;
+        auto factor=coefficient(rows[r],c);
+        for(size_t j=0;j<gen.data[c].size();++j) rhs[r][j]^=mul(factor,gen.data[c][j]);
+      }
     }
-    if (recovered.size() < sizeof(uint16_t)) return false;
-    const uint16_t len = get_u16(recovered.data());
-    if (len > shm::kFrameCap || static_cast<size_t>(len) + sizeof(uint16_t) > recovered.size()) return false;
-    if (!call_publish(publish, recovered.data() + sizeof(uint16_t), len, true, gen.close_reason)) return false;
-    gen.received[missing_index] = true;
-    gen.recovered = true;
-    ++counters_.recovered;
-    if (gen.close_reason == 0) ++counters_.recovered_by_k;
-    else if (gen.close_reason == 1) ++counters_.recovered_by_timeout;
-    else ++counters_.recovered_by_flush;
+    for(uint16_t c=0;c<missing;++c) {
+      uint16_t pivot=c;
+      while(pivot<missing && !matrix[pivot][c]) ++pivot;
+      if(pivot==missing) return false;
+      std::swap(matrix[pivot],matrix[c]); std::swap(rhs[pivot],rhs[c]);
+      auto scale=inverse(matrix[c][c]);
+      for(auto& x:matrix[c]) x=mul(x,scale);
+      for(auto& x:rhs[c]) x=mul(x,scale);
+      for(uint16_t r=0;r<missing;++r) if(r!=c) {
+        auto factor=matrix[r][c];
+        for(uint16_t j=0;j<missing;++j) matrix[r][j]^=mul(factor,matrix[c][j]);
+        for(size_t j=0;j<width;++j) rhs[r][j]^=mul(factor,rhs[c][j]);
+      }
+    }
+    for(uint16_t r=0;r<missing;++r) {
+      auto& recovered=rhs[r];
+      const uint16_t len=get_u16(recovered.data());
+      if(!len || len>wire::max_frame || static_cast<size_t>(len)+2>width) return false;
+    }
+    for(uint16_t r=0;r<missing;++r) {
+      auto& recovered=rhs[r]; auto len=get_u16(recovered.data());
+      if(!call_publish(publish,recovered.data()+2,len,true,gen.close_reason)) return false;
+      gen.received[absent[r]]=true; gen.data[absent[r]]=recovered;
+      ++counters_.recovered;
+      if(gen.close_reason==0) ++counters_.recovered_by_k;
+      else if(gen.close_reason==1) ++counters_.recovered_by_timeout;
+      else ++counters_.recovered_by_flush;
+    }
+    gen.recovered=true;
     const uint64_t latency = now_ns >= gen.first_ns ? now_ns - gen.first_ns : 0;
-    recovery_latencies_.push_back(latency);
-    if (gen.close_reason == 0) recovery_by_k_.push_back(latency);
-    else if (gen.close_reason == 1) recovery_by_timeout_.push_back(latency);
-    else recovery_by_flush_.push_back(latency);
+    metrics::sample(recovery_latencies_,latency,++recovery_events_);
+    if (gen.close_reason == 0) metrics::sample(recovery_by_k_,latency,++recovery_k_events_);
+    else if (gen.close_reason == 1) metrics::sample(recovery_by_timeout_,latency,++recovery_timeout_events_);
+    else metrics::sample(recovery_by_flush_,latency,++recovery_flush_events_);
     return true;
   }
 
@@ -279,7 +379,7 @@ class Decoder {
     for (uint16_t i = 0; i < gen.k; ++i) {
       if (i >= gen.received.size() || !gen.received[i]) ++missing;
     }
-    if (missing > 1) {
+    if (missing > 0) {
       ++counters_.unrecoverable_gens;
       gen.unrecoverable_counted = true;
     }
@@ -293,6 +393,7 @@ class Decoder {
     return values[rank - 1];
   }
 
+  uint64_t recovery_events_=0,recovery_k_events_=0,recovery_timeout_events_=0,recovery_flush_events_=0;
   uint32_t gens_;
   std::vector<Generation> slots_;
   Counters counters_;
